@@ -1,0 +1,287 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: AI Lesson Planner API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: lesson-plans
+    description: Lesson plan operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /lesson-plans:
+    get:
+      operationId: listLessonPlans
+      tags: [lesson-plans]
+      summary: List all lesson plans
+      responses:
+        "200":
+          description: List of lesson plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LessonPlanSummary"
+    post:
+      operationId: createLessonPlan
+      tags: [lesson-plans]
+      summary: Generate a new 10-day lesson plan using AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LessonPlanInput"
+      responses:
+        "201":
+          description: Created lesson plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonPlan"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: AI generation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /lesson-plans/{id}:
+    get:
+      operationId: getLessonPlan
+      tags: [lesson-plans]
+      summary: Get a lesson plan with all days
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Lesson plan with days
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonPlan"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteLessonPlan
+      tags: [lesson-plans]
+      summary: Delete a lesson plan and all its days
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /lesson-plans/{id}/days/{dayNumber}:
+    delete:
+      operationId: deleteLessonDay
+      tags: [lesson-plans]
+      summary: Delete a specific day from a lesson plan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: dayNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /lesson-plans/{id}/days/{dayNumber}/regenerate-quiz:
+    post:
+      operationId: regenerateQuiz
+      tags: [lesson-plans]
+      summary: Generate a fresh quiz for a specific day
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: dayNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated day with new quiz
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonDay"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: AI generation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    LessonPlanInput:
+      type: object
+      properties:
+        topic:
+          type: string
+          minLength: 1
+      required:
+        - topic
+
+    QuizQuestion:
+      type: object
+      properties:
+        question:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+        correctAnswer:
+          type: integer
+          description: Index of the correct option (0-based)
+        explanation:
+          type: string
+      required:
+        - question
+        - options
+        - correctAnswer
+        - explanation
+
+    LessonDay:
+      type: object
+      properties:
+        id:
+          type: integer
+        dayNumber:
+          type: integer
+        title:
+          type: string
+        lessonContent:
+          type: string
+          description: Markdown content for the lesson
+        quiz:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuizQuestion"
+        createdAt:
+          type: string
+      required:
+        - id
+        - dayNumber
+        - title
+        - lessonContent
+        - quiz
+        - createdAt
+
+    LessonPlan:
+      type: object
+      properties:
+        id:
+          type: integer
+        topic:
+          type: string
+        createdAt:
+          type: string
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/LessonDay"
+      required:
+        - id
+        - topic
+        - createdAt
+        - days
+
+    LessonPlanSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        topic:
+          type: string
+        createdAt:
+          type: string
+        dayCount:
+          type: integer
+      required:
+        - id
+        - topic
+        - createdAt
+        - dayCount
