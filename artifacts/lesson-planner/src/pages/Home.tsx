@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
 
+type LearningDepth = 'quick' | 'standard' | 'deep';
+
 const GENERATION_STEPS = [
   { label: 'Building course outline…', pct: 5 },
   { label: 'Writing Day 1 lesson…',    pct: 14 },
@@ -129,6 +131,7 @@ export default function Home() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const [topic, setTopic] = useState('');
+  const [depth, setDepth] = useState<LearningDepth>('standard');
   const [generatingTopic, setGeneratingTopic] = useState('');
   const [generationError, setGenerationError] = useState<string | null>(null);
   
@@ -143,7 +146,7 @@ export default function Home() {
     setGenerationError(null);
 
     createPlan.mutate(
-      { data: { topic } },
+      { data: { topic, depth } },
       {
         onSuccess: (newPlan) => {
           queryClient.invalidateQueries({ queryKey: getListLessonPlansQueryKey() });
@@ -218,7 +221,7 @@ export default function Home() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onSubmit={handleGenerate}
-                className="relative shadow-xl shadow-primary/5 rounded-full"
+                className="relative shadow-xl shadow-primary/5 rounded-2xl p-2"
               >
                 <div className="flex items-center bg-card border-2 border-primary/20 rounded-full p-2 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 transition-all">
                   <div className="pl-4 pr-2 text-primary/50">
@@ -244,6 +247,19 @@ export default function Home() {
                     </span>
                   </Button>
                 </div>
+                <label className="flex items-center justify-between gap-3 px-4 pt-3 pb-1 text-sm text-muted-foreground">
+                  <span>Lesson depth</span>
+                  <select
+                    value={depth}
+                    onChange={(e) => setDepth(e.target.value as LearningDepth)}
+                    className="bg-transparent font-medium text-foreground outline-none"
+                    data-testid="select-lesson-depth"
+                  >
+                    <option value="quick">Quick overview · ~350 words/day</option>
+                    <option value="standard">Average session · ~700 words/day</option>
+                    <option value="deep">Deep dive · ~1,200 words/day</option>
+                  </select>
+                </label>
               </motion.form>
             )}
           </AnimatePresence>

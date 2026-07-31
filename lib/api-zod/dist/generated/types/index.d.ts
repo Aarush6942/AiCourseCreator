@@ -10,6 +10,7 @@ export * from './healthStatus';
 export * from './lessonDay';
 export * from './lessonPlan';
 export * from './lessonPlanInput';
+export * from './lessonPlanInputDepth';
 export * from './lessonPlanSummary';
 export * from './quizQuestion';
 //# sourceMappingURL=index.d.ts.map

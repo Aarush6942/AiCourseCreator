@@ -38,6 +38,17 @@ interface DayOutline {
   objective: string;
 }
 
+type LearningDepth = "quick" | "standard" | "deep";
+
+const depthSettings: Record<
+  LearningDepth,
+  { label: string; wordCount: number; maxTokens: number }
+> = {
+  quick: { label: "a concise overview", wordCount: 350, maxTokens: 1600 },
+  standard: { label: "a balanced learning session", wordCount: 700, maxTokens: 3000 },
+  deep: { label: "an in-depth lesson", wordCount: 1200, maxTokens: 5000 },
+};
+
 function parseRetryAfterMs(errorBody: string): number {
   // Groq returns "Please try again in 19.395s" or "in 1m30s" style messages
   const secondsMatch = errorBody.match(/try again in ([0-9.]+)s/);
@@ -121,7 +132,13 @@ Requirements:
   return parsed.days;
 }
 
-async function generateDayLesson(topic: string, day: DayOutline, allDays: DayOutline[]): Promise<GeneratedDay> {
+async function generateDayLesson(
+  topic: string,
+  day: DayOutline,
+  allDays: DayOutline[],
+  depth: LearningDepth,
+): Promise<GeneratedDay> {
+  const settings = depthSettings[depth];
   const previousDays = allDays
     .filter((d) => d.dayNumber < day.dayNumber)
     .map((d) => `Day ${d.dayNumber}: ${d.title} — ${d.objective}`)
@@ -163,7 +180,7 @@ Return JSON with this structure:
 }
 
 LESSON CONTENT REQUIREMENTS — this is the most important part:
-- Write at least 1200 words of educational content in markdown
+- Write approximately ${settings.wordCount} words of educational content in markdown. This should be ${settings.label}.
 - Start with a brief overview paragraph explaining what will be covered and why it matters
 - Use ## for main sections (aim for 5-7 distinct sections)
 - Use ### for subsections where appropriate
@@ -184,14 +201,14 @@ QUIZ REQUIREMENTS:
 - Explanations should teach — explain WHY the answer is correct and why the others aren't
 - Vary difficulty: 2 foundational, 2 applied, 1 analytical/synthesis question`,
     },
-  ], 6000);
+  ], settings.maxTokens);
 
   const parsed = JSON.parse(content) as GeneratedDay;
   if (!parsed.lessonContent || !parsed.quiz) throw new Error(`Invalid day ${day.dayNumber} structure`);
   return { ...parsed, dayNumber: day.dayNumber, title: day.title };
 }
 
-async function generateLessonPlanWithGroq(topic: string): Promise<GeneratedDay[]> {
+async function generateLessonPlanWithGroq(topic: string, depth: LearningDepth): Promise<GeneratedDay[]> {
   // Step 1: generate the outline quickly
   const outline = await generatePlanOutline(topic);
 
@@ -200,7 +217,7 @@ async function generateLessonPlanWithGroq(topic: string): Promise<GeneratedDay[]
   // so this will self-pace if the limit is hit.
   const days: GeneratedDay[] = [];
   for (const day of outline) {
-    const generated = await generateDayLesson(topic, day, outline);
+    const generated = await generateDayLesson(topic, day, outline, depth);
     days.push(generated);
   }
 
@@ -275,12 +292,12 @@ router.post("/lesson-plans", async (req, res): Promise<void> => {
     return;
   }
 
-  const { topic } = parsed.data;
-  req.log.info({ topic }, "Generating lesson plan with Groq");
+  const { topic, depth = "standard" } = parsed.data;
+  req.log.info({ topic, depth }, "Generating lesson plan with Groq");
 
   let days: GeneratedDay[];
   try {
-    days = await generateLessonPlanWithGroq(topic);
+    days = await generateLessonPlanWithGroq(topic, depth);
   } catch (err) {
     req.log.error({ err }, "Groq API error");
     res.status(500).json({ error: "Failed to generate lesson plan. Please try again." });

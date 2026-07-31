@@ -201,6 +201,11 @@ components:
         topic:
           type: string
           minLength: 1
+        depth:
+          type: string
+          enum: [quick, standard, deep]
+          default: standard
+          description: Desired lesson depth. Quick is a concise overview, standard is a balanced session, and deep is a detailed lesson.
       required:
         - topic
 

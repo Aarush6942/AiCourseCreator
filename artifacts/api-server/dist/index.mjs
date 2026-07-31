@@ -37728,8 +37728,10 @@ var ListLessonPlansResponseItem = objectType({
   "dayCount": numberType()
 });
 var ListLessonPlansResponse = arrayType(ListLessonPlansResponseItem);
+var createLessonPlanBodyDepthDefault = `standard`;
 var CreateLessonPlanBody = objectType({
-  "topic": stringType().min(1)
+  "topic": stringType().min(1),
+  "depth": enumType(["quick", "standard", "deep"]).default(createLessonPlanBodyDepthDefault).describe("Desired lesson depth. Quick is a concise overview, standard is a balanced session, and deep is a detailed lesson.")
 });
 var CreateLessonPlanResponse = objectType({
   "id": numberType(),
@@ -56203,6 +56205,11 @@ var db = drizzle(pool, { schema: schema_exports });
 var router2 = (0, import_express2.Router)();
 var GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 var GROQ_MODEL = "llama-3.3-70b-versatile";
+var depthSettings = {
+  quick: { label: "a concise overview", wordCount: 350, maxTokens: 1600 },
+  standard: { label: "a balanced learning session", wordCount: 700, maxTokens: 3e3 },
+  deep: { label: "an in-depth lesson", wordCount: 1200, maxTokens: 5e3 }
+};
 function parseRetryAfterMs(errorBody) {
   const secondsMatch = errorBody.match(/try again in ([0-9.]+)s/);
   if (secondsMatch) return Math.ceil(parseFloat(secondsMatch[1]) * 1e3) + 500;
@@ -56276,7 +56283,8 @@ Requirements:
   if (!parsed.days || !Array.isArray(parsed.days)) throw new Error("Invalid outline structure");
   return parsed.days;
 }
-async function generateDayLesson(topic, day, allDays) {
+async function generateDayLesson(topic, day, allDays, depth) {
+  const settings = depthSettings[depth];
   const previousDays = allDays.filter((d) => d.dayNumber < day.dayNumber).map((d) => `Day ${d.dayNumber}: ${d.title} \u2014 ${d.objective}`).join("\n");
   const upcomingDays = allDays.filter((d) => d.dayNumber > day.dayNumber).slice(0, 3).map((d) => `Day ${d.dayNumber}: ${d.title}`).join(", ");
   const content = await callGroq([
@@ -56312,7 +56320,7 @@ Return JSON with this structure:
 }
 
 LESSON CONTENT REQUIREMENTS \u2014 this is the most important part:
-- Write at least 1200 words of educational content in markdown
+- Write approximately ${settings.wordCount} words of educational content in markdown. This should be ${settings.label}.
 - Start with a brief overview paragraph explaining what will be covered and why it matters
 - Use ## for main sections (aim for 5-7 distinct sections)
 - Use ### for subsections where appropriate
@@ -56333,16 +56341,16 @@ QUIZ REQUIREMENTS:
 - Explanations should teach \u2014 explain WHY the answer is correct and why the others aren't
 - Vary difficulty: 2 foundational, 2 applied, 1 analytical/synthesis question`
     }
-  ], 6e3);
+  ], settings.maxTokens);
   const parsed = JSON.parse(content);
   if (!parsed.lessonContent || !parsed.quiz) throw new Error(`Invalid day ${day.dayNumber} structure`);
   return { ...parsed, dayNumber: day.dayNumber, title: day.title };
 }
-async function generateLessonPlanWithGroq(topic) {
+async function generateLessonPlanWithGroq(topic, depth) {
   const outline = await generatePlanOutline(topic);
   const days = [];
   for (const day of outline) {
-    const generated = await generateDayLesson(topic, day, outline);
+    const generated = await generateDayLesson(topic, day, outline, depth);
     days.push(generated);
   }
   return days.sort((a, b) => a.dayNumber - b.dayNumber);
@@ -56403,11 +56411,11 @@ router2.post("/lesson-plans", async (req, res) => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { topic } = parsed.data;
-  req.log.info({ topic }, "Generating lesson plan with Groq");
+  const { topic, depth = "standard" } = parsed.data;
+  req.log.info({ topic, depth }, "Generating lesson plan with Groq");
   let days;
   try {
-    days = await generateLessonPlanWithGroq(topic);
+    days = await generateLessonPlanWithGroq(topic, depth);
   } catch (err) {
     req.log.error({ err }, "Groq API error");
     res.status(500).json({ error: "Failed to generate lesson plan. Please try again." });

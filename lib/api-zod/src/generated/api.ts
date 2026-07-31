@@ -33,10 +33,11 @@ export const ListLessonPlansResponse = zod.array(ListLessonPlansResponseItem)
  * @summary Generate a new 10-day lesson plan using AI
  */
 
-
+export const createLessonPlanBodyDepthDefault = `standard`;
 
 export const CreateLessonPlanBody = zod.object({
-  "topic": zod.string().min(1)
+  "topic": zod.string().min(1),
+  "depth": zod.enum(['quick', 'standard', 'deep']).default(createLessonPlanBodyDepthDefault).describe('Desired lesson depth. Quick is a concise overview, standard is a balanced session, and deep is a detailed lesson.')
 })
 
 export const CreateLessonPlanResponse = zod.object({

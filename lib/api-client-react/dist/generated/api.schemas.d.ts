@@ -11,9 +11,20 @@ export interface HealthStatus {
 export interface ErrorResponse {
     error: string;
 }
+/**
+ * Desired lesson depth. Quick is a concise overview, standard is a balanced session, and deep is a detailed lesson.
+ */
+export type LessonPlanInputDepth = typeof LessonPlanInputDepth[keyof typeof LessonPlanInputDepth];
+export declare const LessonPlanInputDepth: {
+    readonly quick: "quick";
+    readonly standard: "standard";
+    readonly deep: "deep";
+};
 export interface LessonPlanInput {
     /** @minLength 1 */
     topic: string;
+    /** Desired lesson depth. Quick is a concise overview, standard is a balanced session, and deep is a detailed lesson. */
+    depth?: LessonPlanInputDepth;
 }
 export interface QuizQuestion {
     question: string;

@@ -5,8 +5,11 @@
  * AI Lesson Planner API
  * OpenAPI spec version: 0.1.0
  */
+import type { LessonPlanInputDepth } from './lessonPlanInputDepth';
 
 export interface LessonPlanInput {
   /** @minLength 1 */
   topic: string;
+  /** Desired lesson depth. Quick is a concise overview, standard is a balanced session, and deep is a detailed lesson. */
+  depth?: LessonPlanInputDepth;
 }
