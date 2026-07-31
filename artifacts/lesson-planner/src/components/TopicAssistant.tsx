@@ -16,7 +16,7 @@ interface TopicAssistantProps {
   dayTitle: string;
 }
 
-const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
 
 export function TopicAssistant({ planId, dayNumber, topic, dayTitle }: TopicAssistantProps) {
   const [open, setOpen] = useState(false);

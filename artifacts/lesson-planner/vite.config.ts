@@ -5,27 +5,16 @@ import { defineConfig } from 'vite';
 
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
 
-const rawPort = process.env.PORT;
+const port = Number(process.env.PORT) || 5173;
 
-if (!rawPort) {
-  throw new Error(
-    'PORT environment variable is required but was not provided.',
-  );
-}
+// GitHub Pages serves a project site at /<repository-name>/, while local
+// development should remain available at the site root.
+const basePath =
+  process.env.BASE_PATH ||
+  process.env.VITE_BASE_PATH ||
+  (process.env.GITHUB_ACTIONS ? '/AiCourseCreator/' : '/');
 
-const port = Number(rawPort);
-
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
-
-const basePath = process.env.BASE_PATH;
-
-if (!basePath) {
-  throw new Error(
-    'BASE_PATH environment variable is required but was not provided.',
-  );
-}
+const currentDir = import.meta.dirname ?? path.resolve();
 
 export default defineConfig({
   base: basePath,
@@ -38,7 +27,7 @@ export default defineConfig({
       ? [
           await import('@replit/vite-plugin-cartographer').then((m) =>
             m.cartographer({
-              root: path.resolve(import.meta.dirname, '..'),
+              root: path.resolve(currentDir, '..'),
             }),
           ),
           await import('@replit/vite-plugin-dev-banner').then((m) =>
@@ -49,19 +38,14 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(import.meta.dirname, 'src'),
-      '@assets': path.resolve(
-        import.meta.dirname,
-        '..',
-        '..',
-        'attached_assets',
-      ),
+      '@': path.resolve(currentDir, 'src'),
+      '@assets': path.resolve(currentDir, '..', '..', 'attached_assets'),
     },
     dedupe: ['react', 'react-dom'],
   },
-  root: path.resolve(import.meta.dirname),
+  root: path.resolve(currentDir),
   build: {
-    outDir: path.resolve(import.meta.dirname, 'dist/public'),
+    outDir: path.resolve(currentDir, 'dist'),
     emptyOutDir: true,
   },
   server: {
@@ -69,9 +53,7 @@ export default defineConfig({
     strictPort: true,
     host: '0.0.0.0',
     allowedHosts: true,
-    fs: {
-      strict: true,
-    },
+    fs: { strict: true },
   },
   preview: {
     port,
