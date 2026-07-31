@@ -130,6 +130,7 @@ export default function Home() {
   const queryClient = useQueryClient();
   const [topic, setTopic] = useState('');
   const [generatingTopic, setGeneratingTopic] = useState('');
+  const [generationError, setGenerationError] = useState<string | null>(null);
   
   const { data: plans, isLoading } = useListLessonPlans();
   const createPlan = useCreateLessonPlan();
@@ -139,6 +140,7 @@ export default function Home() {
     e.preventDefault();
     if (!topic.trim()) return;
     setGeneratingTopic(topic);
+    setGenerationError(null);
 
     createPlan.mutate(
       { data: { topic } },
@@ -149,6 +151,9 @@ export default function Home() {
         },
         onError: () => {
           setGeneratingTopic('');
+          setGenerationError(
+            'Could not generate the lesson plan. Please check that the AI API and database are configured, then try again.',
+          );
         },
       }
     );
@@ -243,6 +248,12 @@ export default function Home() {
             )}
           </AnimatePresence>
         </motion.div>
+
+        {generationError && (
+          <p role="alert" className="mt-4 text-center text-sm text-destructive">
+            {generationError}
+          </p>
+        )}
 
         {/* Saved Plans */}
         <div className="space-y-6">
