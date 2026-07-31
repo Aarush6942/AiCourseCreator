@@ -4,7 +4,7 @@
   "license": "MIT",
   "scripts": {
     "preinstall": "node -e \"const fs=require('fs'); fs.rmSync('package-lock.json',{force:true}); fs.rmSync('yarn.lock',{force:true}); if(!process.env.npm_config_user_agent?.startsWith('pnpm/')) { console.error('Use pnpm instead'); process.exit(1); }\"",
-    "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "build": "pnpm run typecheck && pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/lesson-planner run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },
