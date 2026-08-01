@@ -121,7 +121,7 @@ function GenerationProgress({ topic }: { topic: string }) {
       </div>
 
       <p className="text-xs text-muted-foreground mt-6 text-center">
-        This takes 1–3 minutes — Groq's free tier spaces out AI calls to stay within rate limits.
+        This takes 1–3 minutes depending on the topic and depth. You can leave this page and come back later; your plan will be saved.
       </p>
     </motion.div>
   );
@@ -255,9 +255,9 @@ export default function Home() {
                     className="bg-transparent font-medium text-foreground outline-none"
                     data-testid="select-lesson-depth"
                   >
-                    <option value="quick">Quick overview · ~350 words/day</option>
-                    <option value="standard">Average session · ~700 words/day</option>
-                    <option value="deep">Deep dive · ~1,200 words/day</option>
+                    <option value="quick">Quick overview</option>
+                    <option value="standard">Average session</option>
+                    <option value="deep">Deep dive</option>
                   </select>
                 </label>
               </motion.form>
