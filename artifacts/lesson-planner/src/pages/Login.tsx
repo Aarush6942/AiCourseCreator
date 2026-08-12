@@ -28,7 +28,7 @@ export default function Login() {
     if (loading) return;
     setLoading(true);
 
-    const apiBase = import.meta.env.VITE_API_URL || 'https://aicoursecreator-z7jo.onrender.com';
+    const apiBase = import.meta.env.VITE_API_URL || '';
     
     // Determine the route based on current mode
     const targetEndpoint = isSignUpMode ? '/api/signup' : '/api/login';
