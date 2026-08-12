@@ -56716,7 +56716,6 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"]
   })
 );
-app.options("*", (0, import_cors.default)());
 app.use(import_express5.default.json());
 app.use(import_express5.default.urlencoded({ extended: true }));
 app.use("/api", routes_default);
