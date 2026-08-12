@@ -7,15 +7,14 @@ const authRouter = Router();
 
 // 1. POST /api/signup
 authRouter.post("/signup", async (req, res) => {
-  const { username, password, secretCode } = req.body;
+  // 1. Frontend sends 'password' and 'secretCode'
+  const { username, password, secretCode } = req.body; 
 
   if (!username || !password || !secretCode) {
     return res.status(400).json({ error: "Missing required registration fields." });
   }
 
   try {
-    // Check if the user already exists in the real Neon database
-    // Lowercase comparison handles case-insensitivity securely
     const checkUserQuery = "SELECT id FROM users WHERE LOWER(username) = LOWER($1)";
     const existingUserCheck = await pool.query(checkUserQuery, [username]);
 
@@ -23,13 +22,11 @@ authRouter.post("/signup", async (req, res) => {
       return res.status(400).json({ error: "Username is already taken." });
     }
 
-    // Insert the new user record into Neon.
-    // Let your database auto-generate the ID if it's a SERIAL or UUID column, 
-    // otherwise we select the fields to confirm successful injection.
+    // 2. Map 'password' into 'password_hash' column, and 'secretCode' into 'secret_code' column
     const insertUserQuery = `
-    INSERT INTO users (username, password_hash, secret_code) 
-    VALUES ($1, $2, $3) 
-    RETURNING id
+      INSERT INTO users (username, password_hash, secret_code) 
+      VALUES ($1, $2, $3) 
+      RETURNING id
     `;
     await pool.query(insertUserQuery, [username, password, secretCode]);
 
