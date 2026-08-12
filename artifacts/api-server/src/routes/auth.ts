@@ -27,9 +27,9 @@ authRouter.post("/signup", async (req, res) => {
     // Let your database auto-generate the ID if it's a SERIAL or UUID column, 
     // otherwise we select the fields to confirm successful injection.
     const insertUserQuery = `
-      INSERT INTO users (username, password, "secretCode") 
-      VALUES ($1, $2, $3) 
-      RETURNING id
+    INSERT INTO users (username, password_hash, secret_code) 
+    VALUES ($1, $2, $3) 
+    RETURNING id
     `;
     await pool.query(insertUserQuery, [username, password, secretCode]);
 
@@ -50,7 +50,7 @@ authRouter.post("/login", async (req, res) => {
 
   try {
     // Look up user details straight from the Neon cluster
-    const findUserQuery = 'SELECT id, username, password, "secretCode" FROM users WHERE LOWER(username) = LOWER($1)';
+    const findUserQuery = 'SELECT id, username, password_hash, secret_code FROM users WHERE LOWER(username) = LOWER($1)';
     const result = await pool.query(findUserQuery, [username]);
     
     const user = result.rows[0];
