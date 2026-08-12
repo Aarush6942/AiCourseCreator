@@ -39,20 +39,19 @@ authRouter.post("/signup", async (req, res) => {
 
 // 2. POST /api/login
 authRouter.post("/login", async (req, res) => {
-  const { username, password } = req.body;
+  // 1. Frontend sends 'password'
+  const { username, password } = req.body; 
 
   if (!username || !password) {
     return res.status(400).json({ error: "Username and password are required." });
   }
 
   try {
-    // Look up user details straight from the Neon cluster
     const findUserQuery = 'SELECT id, username, password_hash, secret_code FROM users WHERE LOWER(username) = LOWER($1)';
     const result = await pool.query(findUserQuery, [username]);
     
     const user = result.rows[0];
 
-    // Suggest signing up if username doesn't exist in the database rows
     if (!user) {
       return res.status(404).json({ 
         action: "redirect_to_signup", 
@@ -60,17 +59,17 @@ authRouter.post("/login", async (req, res) => {
       });
     }
 
-    // Direct string comparison matching your original credential check
-    if (user.password !== password) {
+    // 3. Compare the database column 'user.password_hash' to the frontend variable 'password'
+    if (user.password_hash !== password) {
       return res.status(401).json({ error: "Invalid password credentials." });
     }
 
-    // Authentication successful
+    // 4. Return keys to the frontend matching exactly what Login.tsx expects (data.user.secretCode)
     return res.status(200).json({
       user: {
         id: String(user.id),
         username: user.username,
-        secretCode: user.secretCode,
+        secretCode: user.secret_code, // Maps database secret_code back to camelCase for your frontend
       }
     });
   } catch (error) {
@@ -78,5 +77,4 @@ authRouter.post("/login", async (req, res) => {
     return res.status(500).json({ error: "Database error during login." });
   }
 });
-
 export default authRouter;
