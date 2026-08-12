@@ -79,7 +79,7 @@ export default function PlanDetail({ id: stringId, day }: PlanDetailProps) {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListLessonPlansQueryKey() });
-          setLocation('/');
+          setLocation('/home');
         },
       }
     );

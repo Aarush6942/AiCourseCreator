@@ -20,10 +20,10 @@ function Router() {
   return (
     <Switch>
       {/* Public Route */}
-      <Route path="/login" component={Login} />
+      <Route path="/" component={Login} />
 
       {/* Protected App Routes */}
-      <Route path="/">
+      <Route path="/home">
         <PrivateRoute>
           <Home />
         </PrivateRoute>

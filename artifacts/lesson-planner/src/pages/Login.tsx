@@ -74,7 +74,7 @@ export default function Login() {
       localStorage.setItem('userId', data.user.id);
       localStorage.setItem('secretCode', data.user.secretCode);
       
-      setLocation('/');
+      setLocation('/home');
     } catch (err: any) {
       setError(err.message);
     } finally {
