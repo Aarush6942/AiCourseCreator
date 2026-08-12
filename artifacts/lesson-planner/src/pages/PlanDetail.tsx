@@ -31,10 +31,19 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-export default function PlanDetail() {
+interface PlanDetailProps {
+  id: string;
+  day?: string;
+}
+
+export default function PlanDetail({ id: stringId, day }: PlanDetailProps) {
+  // 1. Safely extract and parse route parameters to avoid name collision
   const params = useParams<{ id: string; day?: string }>();
-  const id = parseInt(params.id || '0', 10);
-  const dayParam = params.day ? parseInt(params.day, 10) : null;
+  
+  // fallback to props if params are missing, then parse integers
+  const planId = parseInt(params.id || stringId || '0', 10);
+  const dayParam = params.day ? parseInt(params.day, 10) : (day ? parseInt(day, 10) : null);
+
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
@@ -43,7 +52,8 @@ export default function PlanDetail() {
   const [quizKey, setQuizKey] = useState(0);
   const articleRef = React.useRef<HTMLElement>(null);
 
-  const { data: plan, isLoading, error } = useGetLessonPlan(id);
+  // 2. Fetch using the parsed numeric ID
+  const { data: plan, isLoading, error } = useGetLessonPlan(planId);
   const deleteDay = useDeleteLessonDay();
   const deletePlan = useDeleteLessonPlan();
   const regenerateQuiz = useRegenerateQuiz();
@@ -54,9 +64,9 @@ export default function PlanDetail() {
 
   useEffect(() => {
     if (plan && sortedDays.length > 0 && !dayParam) {
-      setLocation(`/plans/${id}/day/${sortedDays[0].dayNumber}`, { replace: true });
+      setLocation(`/plans/${planId}/day/${sortedDays[0].dayNumber}`, { replace: true });
     }
-  }, [plan, sortedDays, dayParam, id, setLocation]);
+  }, [plan, sortedDays, dayParam, planId, setLocation]);
 
   // Reset quiz component whenever the active day changes
   useEffect(() => {
@@ -65,7 +75,7 @@ export default function PlanDetail() {
 
   const handleDeletePlan = () => {
     deletePlan.mutate(
-      { id },
+      { id: planId },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListLessonPlansQueryKey() });
@@ -77,17 +87,17 @@ export default function PlanDetail() {
 
   const handleDeleteDay = (dayNumber: number) => {
     deleteDay.mutate(
-      { id, dayNumber },
+      { id: planId, dayNumber },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetLessonPlanQueryKey(id) });
+          queryClient.invalidateQueries({ queryKey: getGetLessonPlanQueryKey(planId) });
           if (activeDayNumber === dayNumber) {
             const remaining = sortedDays.filter(d => d.dayNumber !== dayNumber);
             if (remaining.length > 0) {
               const nextDay = remaining.find(d => d.dayNumber > dayNumber) || remaining[remaining.length - 1];
-              setLocation(`/plans/${id}/day/${nextDay.dayNumber}`);
+              setLocation(`/plans/${planId}/day/${nextDay.dayNumber}`);
             } else {
-              setLocation(`/plans/${id}`);
+              setLocation(`/plans/${planId}`);
             }
           }
         },
@@ -98,10 +108,10 @@ export default function PlanDetail() {
   const handleRegenerateQuiz = () => {
     if (!activeDayNumber) return;
     regenerateQuiz.mutate(
-      { id, dayNumber: activeDayNumber },
+      { id: planId, dayNumber: activeDayNumber },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetLessonPlanQueryKey(id) });
+          queryClient.invalidateQueries({ queryKey: getGetLessonPlanQueryKey(planId) });
           setQuizKey(k => k + 1);
         },
       }
@@ -199,7 +209,7 @@ export default function PlanDetail() {
               const isActive = day.dayNumber === activeDayNumber;
               return (
                 <div key={day.id} className="group flex items-center relative">
-                  <Link href={`/plans/${id}/day/${day.dayNumber}`} className="flex-1">
+                  <Link href={`/plans/${planId}/day/${day.dayNumber}`} className="flex-1">
                     <div className={`flex flex-col py-2.5 px-4 rounded-lg transition-colors ${isActive ? 'bg-primary text-primary-foreground shadow-sm' : 'hover:bg-muted text-sidebar-foreground'}`}>
                       <span className={`text-xs font-bold uppercase tracking-wider mb-1 ${isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                         Day {day.dayNumber}
@@ -269,7 +279,7 @@ export default function PlanDetail() {
       {/* AI Tutor assistant */}
       {activeDay && (
         <TopicAssistant
-          planId={id}
+          planId={planId}
           dayNumber={activeDay.dayNumber}
           topic={plan.topic}
           dayTitle={activeDay.title}
