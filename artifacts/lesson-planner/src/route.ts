@@ -1,12 +1,12 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import bcrypt from "bcrypt";
-import { Pool } from "pg"; 
+import { Pool } from "pg";
 
 const router = Router();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 // --- SIGN UP / REGISTER ROUTE ---
-router.post("/signup", async (req, res) => {
+router.post("/signup", async (req: Request, res: Response): Promise<any> => {
   const { username, password, secretCode } = req.body;
 
   if (!username || !password || !secretCode) {
@@ -31,7 +31,7 @@ router.post("/signup", async (req, res) => {
 });
 
 // --- LOGIN ROUTE ---
-router.post("/login", async (req, res) => {
+router.post("/login", async (req: Request, res: Response): Promise<any> => {
   const { username, password } = req.body;
 
   try {
@@ -61,7 +61,7 @@ router.post("/login", async (req, res) => {
 // --- FILTERED LESSON PLANS ROUTES ---
 
 // Get plans only for the logged-in user
-router.get("/lesson-plans", async (req, res) => {
+router.get("/lesson-plans", async (req: Request, res: Response): Promise<any> => {
   const userId = req.headers["x-user-id"]; // Read the identifying user ID from headers
   
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
@@ -75,8 +75,13 @@ router.get("/lesson-plans", async (req, res) => {
 });
 
 // Save plan with the creator's user ID linked
-router.post("/lesson-plans", async (req, res) => {
+router.post("/lesson-plans", async (req: Request, res: Response): Promise<any> => {
   const userId = req.headers["x-user-id"];
+  
+  if (!req.body?.data) {
+    return res.status(400).json({ error: "Invalid request payload layout" });
+  }
+  
   const { topic, depth } = req.body.data;
 
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
