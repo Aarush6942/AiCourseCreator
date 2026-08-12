@@ -28,7 +28,7 @@ export default function Login() {
     if (loading) return;
     setLoading(true);
 
-    const apiBase = import.meta.env.VITE_API_URL || '';
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     
     // Determine the route based on current mode
     const targetEndpoint = isSignUpMode ? '/api/signup' : '/api/login';

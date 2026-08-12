@@ -20706,11 +20706,11 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module.exports = Router4;
+    module.exports = Router5;
     module.exports.Route = Route;
-    function Router4(options) {
-      if (!(this instanceof Router4)) {
-        return new Router4(options);
+    function Router5(options) {
+      if (!(this instanceof Router5)) {
+        return new Router5(options);
       }
       const opts = options || {};
       function router4(req, res, next) {
@@ -20724,9 +20724,9 @@ var require_router = __commonJS({
       router4.stack = [];
       return router4;
     }
-    Router4.prototype = function() {
+    Router5.prototype = function() {
     };
-    Router4.prototype.param = function param(name, fn) {
+    Router5.prototype.param = function param(name, fn) {
       if (!name) {
         throw new TypeError("argument name is required");
       }
@@ -20746,7 +20746,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router4.prototype.handle = function handle(req, res, callback) {
+    Router5.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -20873,7 +20873,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router4.prototype.use = function use(handler) {
+    Router5.prototype.use = function use(handler) {
       let offset = 0;
       let path = "/";
       if (typeof handler !== "function") {
@@ -20906,7 +20906,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router4.prototype.route = function route(path) {
+    Router5.prototype.route = function route(path) {
       const route2 = new Route(path);
       const layer = new Layer(path, {
         sensitive: this.caseSensitive,
@@ -20921,7 +20921,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router4.prototype[method] = function(path) {
+      Router5.prototype[method] = function(path) {
         const route = this.route(path);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -21104,7 +21104,7 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = __require("node:path").resolve;
     var once = require_once();
-    var Router4 = require_router();
+    var Router5 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module.exports = {};
@@ -21120,7 +21120,7 @@ var require_application = __commonJS({
         enumerable: true,
         get: function getrouter() {
           if (router4 === null) {
-            router4 = new Router4({
+            router4 = new Router5({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
@@ -23789,7 +23789,7 @@ var require_express = __commonJS({
     var EventEmitter = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router4 = require_router();
+    var Router5 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module.exports = createApplication;
@@ -23811,8 +23811,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router4.Route;
-    exports.Router = Router4;
+    exports.Route = Router5.Route;
+    exports.Router = Router5;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -33821,12 +33821,12 @@ var require_lib5 = __commonJS({
 });
 
 // src/app.ts
-var import_express4 = __toESM(require_express2(), 1);
+var import_express5 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 
 // src/routes/index.ts
-var import_express3 = __toESM(require_express2(), 1);
+var import_express4 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
@@ -56610,10 +56610,59 @@ Keep answers under ~250 words unless they specifically ask for more detail.`;
 });
 var lesson_plans_default = router2;
 
+// src/routes/auth.ts
+var import_express3 = __toESM(require_express2(), 1);
+var authRouter = (0, import_express3.Router)();
+var usersDb = [];
+authRouter.post("/signup", (req, res) => {
+  const { username, password, secretCode } = req.body;
+  if (!username || !password || !secretCode) {
+    return res.status(400).json({ error: "Missing required registration fields." });
+  }
+  const userExists = usersDb.find((u) => u.username.toLowerCase() === username.toLowerCase());
+  if (userExists) {
+    return res.status(400).json({ error: "Username is already taken." });
+  }
+  const newUser = {
+    id: String(usersDb.length + 1),
+    username,
+    password,
+    // In production, hash your password (e.g., using bcrypt)
+    secretCode
+  };
+  usersDb.push(newUser);
+  return res.status(201).json({ message: "User registered successfully!" });
+});
+authRouter.post("/login", (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: "Username and password are required." });
+  }
+  const user = usersDb.find((u) => u.username.toLowerCase() === username.toLowerCase());
+  if (!user) {
+    return res.status(404).json({
+      action: "redirect_to_signup",
+      error: "Account not found."
+    });
+  }
+  if (user.password !== password) {
+    return res.status(401).json({ error: "Invalid password credentials." });
+  }
+  return res.status(200).json({
+    user: {
+      id: user.id,
+      username: user.username,
+      secretCode: user.secretCode
+    }
+  });
+});
+var auth_default = authRouter;
+
 // src/routes/index.ts
-var router3 = (0, import_express3.Router)();
+var router3 = (0, import_express4.Router)();
 router3.use(health_default);
 router3.use(lesson_plans_default);
+router3.use(auth_default);
 var routes_default = router3;
 
 // src/lib/logger.ts
@@ -56635,7 +56684,7 @@ var logger = (0, import_pino.default)({
 });
 
 // src/app.ts
-var app = (0, import_express4.default)();
+var app = (0, import_express5.default)();
 app.use(
   (0, import_pino_http.default)({
     logger,
@@ -56655,9 +56704,21 @@ app.use(
     }
   })
 );
-app.use((0, import_cors.default)());
-app.use(import_express4.default.json());
-app.use(import_express4.default.urlencoded({ extended: true }));
+app.use(
+  (0, import_cors.default)({
+    origin: [
+      "https://aarush6942.github.io",
+      "http://localhost:5173",
+      "http://localhost:3000"
+    ],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+  })
+);
+app.options("*", (0, import_cors.default)());
+app.use(import_express5.default.json());
+app.use(import_express5.default.urlencoded({ extended: true }));
 app.use("/api", routes_default);
 var app_default = app;
 
