@@ -8,29 +8,34 @@ import { Lock, UserPlus } from 'lucide-react';
 export default function Login() {
   const [, setLocation] = useLocation();
   
-  // State to manage toggle between 'login' and 'signup' modes
   const [isSignUpMode, setIsSignUpMode] = useState(false);
   
-  // Form input fields
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [secretCode, setSecretCode] = useState('');
   
-  // Status states
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Helper function to automatically generate a clean, random secret tracking code
+  const generateSecretCode = () => {
+    const randomHex = Math.random().toString(16).substring(2, 10).toUpperCase();
+    return `TRACKER-${randomHex}`;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (loading) return;
     setLoading(true);
 
     const apiBase = import.meta.env.VITE_API_URL || 'https://aicoursecreator-z7jo.onrender.com';
     
     // Determine the route based on current mode
     const targetEndpoint = isSignUpMode ? '/api/signup' : '/api/login';
+    
+    // Automatically generate the secret code on the fly if registering
     const payload = isSignUpMode 
-      ? { username, password, secretCode } 
+      ? { username, password, secretCode: generateSecretCode() } 
       : { username, password };
 
     try {
@@ -40,10 +45,15 @@ export default function Login() {
         body: JSON.stringify(payload),
       });
 
+      // Handle cases where the server sends back an HTML page instead of JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Server returned an unexpected response. Please try again later.');
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
-        // 🚀 CRITICAL CHECK: If backend tells us the user wasn't found, flip them automatically to Sign Up mode
         if (data.action === 'redirect_to_signup') {
           setIsSignUpMode(true);
           setError('Account not found. We have switched you to the Sign Up screen to create your profile!');
@@ -53,21 +63,17 @@ export default function Login() {
         throw new Error(data.error || 'Authentication failed');
       }
 
-      // If they just successfully signed up, let's automatically log them in
       if (isSignUpMode) {
         setIsSignUpMode(false);
-        setError('Account created successfully! Please enter your password to log in.');
-        setSecretCode('');
+        setError('Account created successfully! Please enter your credentials to log in.');
         setLoading(false);
         return;
       }
 
-      // Save credentials locally for session tracking
       localStorage.setItem('isAuthenticated', 'true');
       localStorage.setItem('userId', data.user.id);
       localStorage.setItem('secretCode', data.user.secretCode);
       
-      // Redirect to dashboard home page
       setLocation('/');
     } catch (err: any) {
       setError(err.message);
@@ -110,29 +116,11 @@ export default function Login() {
               <label className="text-sm font-medium text-muted-foreground">Password</label>
               <Input 
                 type="password" 
-                placeholder="••••••••" 
                 value={password} 
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
-
-            {/* 🔑 Dynamic Field: Only visible during Sign Up mode */}
-            {isSignUpMode && (
-              <div className="space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
-                <label className="text-sm font-medium text-muted-foreground">Your Secret Tracker Code</label>
-                <Input 
-                  type="text" 
-                  placeholder="e.g. TEACHER-MATH-2026" 
-                  value={secretCode} 
-                  onChange={(e) => setSecretCode(e.target.value)}
-                  required
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  This custom code links specific generated lesson plans to your dashboard account.
-                </p>
-              </div>
-            )}
 
             {error && (
               <p className={`text-sm font-medium p-2 rounded ${
