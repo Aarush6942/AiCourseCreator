@@ -64,17 +64,15 @@ export default function Login() {
       }
 
       if (isSignUpMode) {
-        setIsSignUpMode(false);
-        setError('Account created successfully! Please enter your credentials to log in.');
-        setLoading(false);
+        // Save the authentication status and user details returned by the signup API
+        localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('userId', data.user.id);
+        localStorage.setItem('secretCode', data.user.secretCode);
+        
+        // Send them straight to the home page!
+        setLocation('/home');
         return;
-      }
-
-      localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('userId', data.user.id);
-      localStorage.setItem('secretCode', data.user.secretCode);
-      
-      setLocation('/home');
+        }
     } catch (err: any) {
       setError(err.message);
     } finally {

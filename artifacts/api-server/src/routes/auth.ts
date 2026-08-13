@@ -15,26 +15,35 @@ authRouter.post("/signup", async (req, res) => {
   }
 
   try {
-    const checkUserQuery = "SELECT id FROM users WHERE LOWER(username) = LOWER($1)";
-    const existingUserCheck = await pool.query(checkUserQuery, [username]);
+  const checkUserQuery = "SELECT id FROM users WHERE LOWER(username) = LOWER($1)";
+  const existingUserCheck = await pool.query(checkUserQuery, [username]);
 
-    if (existingUserCheck.rows.length > 0) {
-      return res.status(400).json({ error: "Username is already taken." });
-    }
-
-    // 2. Map 'password' into 'password_hash' column, and 'secretCode' into 'secret_code' column
-    const insertUserQuery = `
-      INSERT INTO users (username, password_hash, secret_code) 
-      VALUES ($1, $2, $3) 
-      RETURNING id
-    `;
-    await pool.query(insertUserQuery, [username, password, secretCode]);
-
-    return res.status(201).json({ message: "User registered successfully!" });
-  } catch (error) {
-    console.error("Neon DB Signup Error:", error);
-    return res.status(500).json({ error: "Database error during registration." });
+  if (existingUserCheck.rows.length > 0) {
+    return res.status(400).json({ error: "Username is already taken." });
   }
+
+  // Insert the user and return the generated ID back from the database
+  const insertUserQuery = `
+    INSERT INTO users (username, password_hash, secret_code) 
+    VALUES ($1, $2, $3) 
+    RETURNING id
+  `;
+  const result = await pool.query(insertUserQuery, [username, password, secretCode]);
+  const newUserId = result.rows[0].id;
+
+  // Return the exact data structure your frontend is expecting to save to localStorage
+  return res.status(201).json({ 
+    message: "User registered successfully!",
+    user: {
+      id: String(newUserId),
+      username: username,
+      secretCode: secretCode // This matches the frontend payload casing perfectly
+    }
+  });
+} catch (error) {
+  console.error("Neon DB Signup Error:", error);
+  return res.status(500).json({ error: "Database error during registration." });
+}
 });
 
 // 2. POST /api/login
