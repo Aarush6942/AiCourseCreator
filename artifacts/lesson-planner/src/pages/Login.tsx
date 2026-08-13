@@ -64,10 +64,19 @@ export default function Login() {
       // --- Success Handling for Both Paths ---
       
       // Save authentication metadata to browser memory
-      localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('username', data.user.username);
-      localStorage.setItem('secretCode', data.user.secretCode);
-      
+     localStorage.setItem('isAuthenticated', 'true');
+
+    // FIX: Try reading from deep nested object, then flat data object, then fallback to local input state
+    const authenticatedUsername = data?.user?.username || data?.username || username;
+    localStorage.setItem('username', authenticatedUsername);
+
+    // Secure tracking code fallback
+    const secretCodeToSave = data?.user?.secretCode || data?.secretCode || 'TRACKER-DEFAULT';
+    localStorage.setItem('secretCode', secretCodeToSave);
+
+    // Push the user straight through to their dashboard
+    setLocation('/home');
+        
       // Push the user straight through to their dashboard
       setLocation('/home');
 
