@@ -65,7 +65,7 @@ export default function Login() {
       
       // Save authentication metadata to browser memory
       localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('userId', data.user.id);
+      localStorage.setItem('username', data.user.username);
       localStorage.setItem('secretCode', data.user.secretCode);
       
       // Push the user straight through to their dashboard
