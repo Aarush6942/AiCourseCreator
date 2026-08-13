@@ -8,7 +8,7 @@ import {
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { BookOpen, Sparkles, Trash2, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
+import { BookOpen, Sparkles, Trash2, ArrowRight, CheckCircle2, Loader2, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { Button } from '@/components/ui/button';
@@ -50,12 +50,10 @@ function GenerationProgress({ topic }: { topic: string }) {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    // Advance one step every ~12 s; hold at last step until server responds
     timerRef.current = setInterval(() => {
       setStepIndex(i => Math.min(i + 1, GENERATION_STEPS.length - 1));
       setElapsedSec(s => s + 12);
     }, 12_000);
-    // Tick elapsed seconds separately for the timer display
     const secTick = setInterval(() => setElapsedSec(s => s + 1), 1000);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -86,7 +84,6 @@ function GenerationProgress({ topic }: { topic: string }) {
         <span className="ml-auto text-xs text-muted-foreground tabular-nums">{timeStr}</span>
       </div>
 
-      {/* Progress bar */}
       <div className="relative h-2.5 bg-muted rounded-full overflow-hidden mb-4">
         <motion.div
           className="absolute inset-y-0 left-0 bg-primary rounded-full"
@@ -95,7 +92,6 @@ function GenerationProgress({ topic }: { topic: string }) {
         />
       </div>
 
-      {/* Step list */}
       <div className="space-y-2 mt-5">
         {GENERATION_STEPS.slice(0, Math.min(stepIndex + 3, GENERATION_STEPS.length)).map((s, i) => {
           const done = i < stepIndex;
@@ -134,10 +130,19 @@ export default function Home() {
   const [depth, setDepth] = useState<LearningDepth>('standard');
   const [generatingTopic, setGeneratingTopic] = useState('');
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState('Explorer');
   
   const { data: plans, isLoading } = useListLessonPlans();
   const createPlan = useCreateLessonPlan();
   const deletePlan = useDeleteLessonPlan();
+
+  // Read authenticated metadata from memory when dashboard mounts
+  useEffect(() => {
+    const savedUsername = localStorage.getItem('username');
+    if (savedUsername) {
+      setDisplayName(savedUsername);
+    }
+  }, []);
 
   const handleGenerate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -179,10 +184,20 @@ export default function Home() {
         
         {/* Header Area */}
         <header className="mb-16 text-center space-y-4">
+          {/* Animated Greeting Label Component */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-2 border border-primary/20 shadow-sm"
+          >
+            <User className="w-4 h-4" />
+            <span>Hi, <b className="capitalize font-semibold">{displayName}</b> 👋</span>
+          </motion.div>
+
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center justify-center p-3 bg-primary/5 rounded-full mb-4 text-primary"
+            className="flex items-center justify-center p-3 bg-primary/5 rounded-full mx-auto text-primary w-fit"
           >
             <BookOpen className="w-8 h-8" />
           </motion.div>
