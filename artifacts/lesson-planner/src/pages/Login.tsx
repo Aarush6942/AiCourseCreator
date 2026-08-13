@@ -9,10 +9,8 @@ export default function Login() {
   const [, setLocation] = useLocation();
   
   const [isSignUpMode, setIsSignUpMode] = useState(false);
-  
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -63,16 +61,16 @@ export default function Login() {
         throw new Error(data.error || 'Authentication failed');
       }
 
-      if (isSignUpMode) {
-        // Save the authentication status and user details returned by the signup API
-        localStorage.setItem('isAuthenticated', 'true');
-        localStorage.setItem('userId', data.user.id);
-        localStorage.setItem('secretCode', data.user.secretCode);
-        
-        // Send them straight to the home page!
-        setLocation('/home');
-        return;
-        }
+      // --- Success Handling for Both Paths ---
+      
+      // Save authentication metadata to browser memory
+      localStorage.setItem('isAuthenticated', 'true');
+      localStorage.setItem('userId', data.user.id);
+      localStorage.setItem('secretCode', data.user.secretCode);
+      
+      // Push the user straight through to their dashboard
+      setLocation('/home');
+
     } catch (err: any) {
       setError(err.message);
     } finally {
