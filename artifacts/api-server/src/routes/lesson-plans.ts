@@ -12,7 +12,8 @@ import {
   ListLessonPlansResponse,
   RegenerateQuizResponse,
 } from "@workspace/api-zod";
-
+import dns from "node:dns";
+dns.setDefaultResultOrder("ipv4first");
 const router: IRouter = Router();
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
