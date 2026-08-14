@@ -44,16 +44,12 @@ const depthSettings: Record<
   LearningDepth,
   { label: string; wordCount: number; maxTokens: number }
 > = {
-  // Leave room for the JSON encoding and five fully explained quiz answers.
-  // Previously the lesson often reached the completion limit before it could
-  // close the JSON object, which Groq correctly rejects.
   quick: { label: "a concise overview", wordCount: 250, maxTokens: 2400 },
   standard: { label: "a balanced learning session", wordCount: 550, maxTokens: 4200 },
   deep: { label: "an in-depth lesson", wordCount: 900, maxTokens: 6000 },
 };
 
 function parseRetryAfterMs(errorBody: string): number {
-  // Groq returns "Please try again in 19.395s" or "in 1m30s" style messages
   const secondsMatch = errorBody.match(/try again in ([0-9.]+)s/);
   if (secondsMatch) return Math.ceil(parseFloat(secondsMatch[1]) * 1000) + 500;
   const minsMatch = errorBody.match(/try again in ([0-9]+)m([0-9.]+)s/);
@@ -61,32 +57,37 @@ function parseRetryAfterMs(errorBody: string): number {
   return 30_000; // default 30s fallback
 }
 
-async function callGroq(messages: Array<{ role: string; content: string }>, maxTokens = 4000, retries = 5): Promise<string> {
+async function callGroq(messages: Array<{ role: string; content: string }>, maxTokens = 4000, retries = 5, responseFormatJson = true): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error("GROQ_API_KEY is not set");
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     const attemptMaxTokens = attempt === 0 ? maxTokens : Math.min(Math.ceil(maxTokens * 1.5), 8000);
     
-    // Create an abort controller with a 15-second timeout to prevent hanging
+    // Create an abort controller with a 15-second timeout to prevent hanging on Render
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     let response: Response;
     try {
+      const requestBody: any = {
+        model: GROQ_MODEL,
+        messages,
+        temperature: 0.7,
+        max_tokens: attemptMaxTokens,
+      };
+
+      if (responseFormatJson) {
+        requestBody.response_format = { type: "json_object" };
+      }
+
       response = await fetch(GROQ_API_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
-        body: JSON.stringify({
-          model: GROQ_MODEL,
-          messages,
-          temperature: 0.7,
-          max_tokens: attemptMaxTokens,
-          response_format: { type: "json_object" },
-        }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal,
       });
     } catch (err: any) {
@@ -234,8 +235,6 @@ QUIZ REQUIREMENTS:
 }
 
 async function generateLessonPlanWithGroq(topic: string, depth: LearningDepth, dayCount: number): Promise<GeneratedDay[]> {
-  // Step 1: generate the outline quickly
-  const outline = await generatePlanOutline(topic, dayCount);
   if (dayCount === 1) {
     const content = await callGroq([
       { role: "system", content: "You are a helpful assistant. Respond with valid JSON only." },
@@ -247,7 +246,6 @@ async function generateLessonPlanWithGroq(topic: string, depth: LearningDepth, d
 
     const parsed = JSON.parse(content) as { summary: string };
     
-    // Format it back into the standard GeneratedDay structure so the DB insert works cleanly
     return [{
       dayNumber: 1,
       title: `Test: ${topic}`,
@@ -262,10 +260,8 @@ async function generateLessonPlanWithGroq(topic: string, depth: LearningDepth, d
       ]
     }];
   }
-  // Step 2: generate a small number of days concurrently. Ten strictly
-  // sequential Groq calls can exceed the HTTP proxy timeout before Express
-  // sends its response. A pool of two halves the wall-clock time while
-  // callGroq still backs off and retries whenever Groq returns a 429.
+
+  const outline = await generatePlanOutline(topic, dayCount);
   const concurrency = 2;
   const days: GeneratedDay[] = [];
   let nextDayIndex = 0;
@@ -365,17 +361,15 @@ router.post("/lesson-plans", async (req, res): Promise<void> => {
   }
 
   const { topic, depth = "standard", secretCode, dayCount = 10 } = parsed.data;
-  // The one-day mode is intentionally short so it can be used to isolate
-  // deployment, database, and Groq problems quickly.
   const generationDepth: LearningDepth = dayCount === 1 ? "quick" : depth;
   req.log.info({ topic, depth: generationDepth, dayCount }, "Generating lesson plan with Groq");
 
   let days: GeneratedDay[];
   try {
     days = await generateLessonPlanWithGroq(topic, generationDepth, dayCount);
-  } catch (err) {
-    req.log.error({ err }, "Groq API error");
-    res.status(500).json({ error: "Failed to generate lesson plan. Please try again." });
+  } catch (err: any) {
+    req.log.error({ err: err?.message || err }, "Groq API error during plan generation");
+    res.status(500).json({ error: err?.message || "Failed to generate lesson plan. Please try again." });
     return;
   }
 
@@ -516,9 +510,9 @@ router.post("/lesson-plans/:id/days/:dayNumber/regenerate-quiz", async (req, res
   let newQuiz: QuizQuestion[];
   try {
     newQuiz = await generateNewQuiz(plan.topic, day.title, day.lessonContent, day.dayNumber);
-  } catch (err) {
-    req.log.error({ err }, "Groq API error during quiz regeneration");
-    res.status(500).json({ error: "Failed to generate new quiz. Please try again." });
+  } catch (err: any) {
+    req.log.error({ err: err?.message || err }, "Groq API error during quiz regeneration");
+    res.status(500).json({ error: err?.message || "Failed to generate new quiz. Please try again." });
     return;
   }
 
@@ -540,7 +534,7 @@ router.post("/lesson-plans/:id/days/:dayNumber/regenerate-quiz", async (req, res
   res.json(RegenerateQuizResponse.parse(result));
 });
 
-// POST /lesson-plans/:id/days/:dayNumber/ask  — AI tutor chat (no codegen, free-form text)
+// POST /lesson-plans/:id/days/:dayNumber/ask — AI tutor chat (no codegen, free-form text)
 router.post("/lesson-plans/:id/days/:dayNumber/ask", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   const dayNumber = parseInt(req.params.dayNumber, 10);
@@ -567,9 +561,6 @@ router.post("/lesson-plans/:id/days/:dayNumber/ask", async (req, res): Promise<v
     .where(and(eq(lessonDaysTable.lessonPlanId, id), eq(lessonDaysTable.dayNumber, dayNumber)));
   if (!day) { res.status(404).json({ error: "Day not found" }); return; }
 
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) { res.status(500).json({ error: "GROQ_API_KEY not set" }); return; }
-
   const systemPrompt = `You are an expert, friendly tutor helping a student study "${plan.topic}".
 They are currently on Day ${day.dayNumber}: "${day.title}".
 
@@ -584,36 +575,17 @@ Keep answers under ~250 words unless they specifically ask for more detail.`;
 
   const messages = [
     { role: "system", content: systemPrompt },
-    ...(history || []).slice(-10),           // last 10 turns of context
+    ...(history || []).slice(-10),          // last 10 turns of context
     { role: "user", content: message.trim() },
   ];
 
   let reply: string;
   try {
-    // Use free-form text — no json_object response_format
-    const response = await fetch(GROQ_API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages,
-        temperature: 0.7,
-        max_tokens: 600,
-      }),
-    });
-    if (response.status === 429) {
-      res.status(429).json({ error: "Rate limit hit — please wait a moment and try again." });
-      return;
-    }
-    if (!response.ok) {
-      const t = await response.text();
-      throw new Error(`Groq error: ${response.status} ${t}`);
-    }
-    const data = (await response.json()) as { choices: Array<{ message: { content: string } }> };
-    reply = data.choices[0]?.message?.content ?? "";
-  } catch (err) {
-    req.log.error({ err }, "Groq error in /ask");
-    res.status(500).json({ error: "Failed to get AI response. Please try again." });
+    // Utilize callGroq with responseFormatJson = false for free-form text
+    reply = await callGroq(messages, 600, 3, false);
+  } catch (err: any) {
+    req.log.error({ err: err?.message || err }, "Groq error in /ask");
+    res.status(500).json({ error: err?.message || "Failed to get AI response. Please try again." });
     return;
   }
 
