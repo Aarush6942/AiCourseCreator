@@ -223,14 +223,25 @@ async function generateLessonPlanWithGroq(topic: string, depth: LearningDepth): 
   // Step 1: generate the outline quickly
   const outline = await generatePlanOutline(topic);
 
-  // Step 2: generate days sequentially to stay within Groq's TPM rate limit.
-  // callGroq already auto-retries on 429 with the server-suggested wait time,
-  // so this will self-pace if the limit is hit.
+  // Step 2: generate a small number of days concurrently. Ten strictly
+  // sequential Groq calls can exceed the HTTP proxy timeout before Express
+  // sends its response. A pool of two halves the wall-clock time while
+  // callGroq still backs off and retries whenever Groq returns a 429.
+  const concurrency = 2;
   const days: GeneratedDay[] = [];
-  for (const day of outline) {
-    const generated = await generateDayLesson(topic, day, outline, depth);
-    days.push(generated);
+  let nextDayIndex = 0;
+
+  async function generateNextDay(): Promise<void> {
+    while (nextDayIndex < outline.length) {
+      const day = outline[nextDayIndex++];
+      const generated = await generateDayLesson(topic, day, outline, depth);
+      days.push(generated);
+    }
   }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, outline.length) }, generateNextDay),
+  );
 
   return days.sort((a, b) => a.dayNumber - b.dayNumber);
 }
