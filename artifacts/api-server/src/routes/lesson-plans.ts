@@ -44,9 +44,12 @@ const depthSettings: Record<
   LearningDepth,
   { label: string; wordCount: number; maxTokens: number }
 > = {
-  quick: { label: "a concise overview", wordCount: 350, maxTokens: 1600 },
-  standard: { label: "a balanced learning session", wordCount: 700, maxTokens: 3000 },
-  deep: { label: "an in-depth lesson", wordCount: 1200, maxTokens: 5000 },
+  // Leave room for the JSON encoding and five fully explained quiz answers.
+  // Previously the lesson often reached the completion limit before it could
+  // close the JSON object, which Groq correctly rejects.
+  quick: { label: "a concise overview", wordCount: 250, maxTokens: 2400 },
+  standard: { label: "a balanced learning session", wordCount: 550, maxTokens: 4200 },
+  deep: { label: "an in-depth lesson", wordCount: 900, maxTokens: 6000 },
 };
 
 function parseRetryAfterMs(errorBody: string): number {
@@ -63,6 +66,9 @@ async function callGroq(messages: Array<{ role: string; content: string }>, maxT
   if (!apiKey) throw new Error("GROQ_API_KEY is not set");
 
   for (let attempt = 0; attempt <= retries; attempt++) {
+    // A JSON-validation error means the model ran out of room before closing
+    // its JSON response. Give the retry additional completion headroom.
+    const attemptMaxTokens = attempt === 0 ? maxTokens : Math.min(Math.ceil(maxTokens * 1.5), 8000);
     const response = await fetch(GROQ_API_URL, {
       method: "POST",
       headers: {
@@ -73,7 +79,7 @@ async function callGroq(messages: Array<{ role: string; content: string }>, maxT
         model: GROQ_MODEL,
         messages,
         temperature: 0.7,
-        max_tokens: maxTokens,
+        max_tokens: attemptMaxTokens,
         response_format: { type: "json_object" },
       }),
     });
@@ -90,6 +96,10 @@ async function callGroq(messages: Array<{ role: string; content: string }>, maxT
 
     if (!response.ok) {
       const errorText = await response.text();
+      if (response.status === 400 && errorText.includes("json_validate_failed") && attempt < retries) {
+        await new Promise((r) => setTimeout(r, 500));
+        continue;
+      }
       throw new Error(`Groq API error: ${response.status} - ${errorText}`);
     }
 
@@ -181,6 +191,7 @@ Return JSON with this structure:
 
 LESSON CONTENT REQUIREMENTS — this is the most important part:
 - Write approximately ${settings.wordCount} words of educational content in markdown. This should be ${settings.label}.
+- Keep the lesson within that target; reserve enough response space to complete all five quiz questions and the closing JSON brackets.
 - Start with a brief overview paragraph explaining what will be covered and why it matters
 - Use ## for main sections (aim for 5-7 distinct sections)
 - Use ### for subsections where appropriate
