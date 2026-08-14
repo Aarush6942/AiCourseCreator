@@ -326,49 +326,37 @@ router.post("/lesson-plans", async (req, res): Promise<void> => {
   }
 
   const { topic, depth = "standard", secretCode } = parsed.data;
-  req.log.info({ topic, depth }, "Generating lesson plan with Groq");
-
-  let days: GeneratedDay[];
-  try {
-    days = await generateLessonPlanWithGroq(topic, depth);
-  } catch (err) {
-    req.log.error({ err }, "Groq API error");
-    res.status(500).json({ error: "Failed to generate lesson plan. Please try again." });
-    return;
-  }
-
   const [plan] = await db.insert(lessonPlansTable).values({ topic, secretCode }).returning();
-
-  const insertedDays = await db
-    .insert(lessonDaysTable)
-    .values(
-      days.map((d) => ({
-        lessonPlanId: plan.id,
-        dayNumber: d.dayNumber,
-        title: d.title,
-        lessonContent: d.lessonContent,
-        quiz: d.quiz,
-      }))
-    )
-    .returning();
-
-  const result = {
+  const pendingPlan = {
     id: plan.id,
     topic: plan.topic,
     createdAt: plan.createdAt.toISOString(),
-    days: insertedDays
-      .sort((a, b) => a.dayNumber - b.dayNumber)
-      .map((d: typeof insertedDays[number]) => ({
-        id: d.id,
-        dayNumber: d.dayNumber,
-        title: d.title,
-        lessonContent: d.lessonContent,
-        quiz: d.quiz as QuizQuestion[],
-        createdAt: d.createdAt.toISOString(),
-      })),
+    days: [],
   };
 
-  res.status(201).json(CreateLessonPlanResponse.parse(result));
+  // Return before the long-running AI work begins. This prevents a browser or
+  // proxy connection reset from discarding an otherwise valid generation.
+  res.status(202).json(CreateLessonPlanResponse.parse(pendingPlan));
+
+  void (async () => {
+    req.log.info({ topic, depth, planId: plan.id }, "Generating lesson plan with Groq");
+
+    try {
+      const days = await generateLessonPlanWithGroq(topic, depth);
+      await db.insert(lessonDaysTable).values(
+        days.map((d) => ({
+          lessonPlanId: plan.id,
+          dayNumber: d.dayNumber,
+          title: d.title,
+          lessonContent: d.lessonContent,
+          quiz: d.quiz,
+        })),
+      );
+      req.log.info({ planId: plan.id }, "Lesson-plan generation completed");
+    } catch (err) {
+      req.log.error({ err, planId: plan.id }, "Lesson-plan generation failed");
+    }
+  })();
 });
 
 // GET /lesson-plans/:id
