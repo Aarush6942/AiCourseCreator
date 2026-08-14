@@ -37,7 +37,8 @@ export const createLessonPlanBodyDepthDefault = `standard`;
 
 export const CreateLessonPlanBody = zod.object({
   "topic": zod.string().min(1),
-  "depth": zod.enum(['quick', 'standard', 'deep']).default(createLessonPlanBodyDepthDefault).describe('Desired lesson depth. Quick is a concise overview, standard is a balanced session, and deep is a detailed lesson.')
+  "depth": zod.enum(['quick', 'standard', 'deep']).default(createLessonPlanBodyDepthDefault).describe('Desired lesson depth. Quick is a concise overview, standard is a balanced session, and deep is a detailed lesson.'),
+  "secretCode": zod.string().min(1).describe('The signed-in user\'s secret tracking code.')
 })
 
 export const CreateLessonPlanResponse = zod.object({

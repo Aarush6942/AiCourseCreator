@@ -303,7 +303,7 @@ router.post("/lesson-plans", async (req, res): Promise<void> => {
     return;
   }
 
-  const { topic, depth = "standard" } = parsed.data;
+  const { topic, depth = "standard", secretCode } = parsed.data;
   req.log.info({ topic, depth }, "Generating lesson plan with Groq");
 
   let days: GeneratedDay[];
@@ -315,7 +315,7 @@ router.post("/lesson-plans", async (req, res): Promise<void> => {
     return;
   }
 
-  const [plan] = await db.insert(lessonPlansTable).values({ topic }).returning();
+  const [plan] = await db.insert(lessonPlansTable).values({ topic, secretCode }).returning();
 
   const insertedDays = await db
     .insert(lessonDaysTable)

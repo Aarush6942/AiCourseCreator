@@ -30,6 +30,8 @@ export interface LessonPlanInput {
   topic: string;
   /** Desired lesson depth. Quick is a concise overview, standard is a balanced session, and deep is a detailed lesson. */
   depth?: LessonPlanInputDepth;
+  /** The signed-in user's secret tracking code. */
+  secretCode: string;
 }
 
 export interface QuizQuestion {

@@ -5,6 +5,7 @@ import { z } from "zod/v4";
 export const lessonPlansTable = pgTable("lesson_plans", {
   id: serial("id").primaryKey(),
   topic: text("topic").notNull(),
+  secretCode: text("secret_code"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

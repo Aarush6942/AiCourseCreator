@@ -150,17 +150,26 @@ export default function Home() {
     setGeneratingTopic(topic);
     setGenerationError(null);
 
+    const secretCode = localStorage.getItem('secretCode');
+    if (!secretCode) {
+      setGeneratingTopic('');
+      setGenerationError('Please sign in again before generating a lesson plan.');
+      return;
+    }
+
     createPlan.mutate(
-      { data: { topic, depth } },
+      { data: { topic, depth, secretCode } },
       {
         onSuccess: (newPlan) => {
           queryClient.invalidateQueries({ queryKey: getListLessonPlansQueryKey() });
           setLocation(`/plans/${newPlan.id}`);
         },
-        onError: () => {
+        onError: (error) => {
           setGeneratingTopic('');
           setGenerationError(
-            'Could not generate the lesson plan. Please check that the AI API and database are configured, then try again.',
+            error instanceof Error
+              ? `Could not generate the lesson plan: ${error.message}`
+              : 'Could not generate the lesson plan. Please try again.',
           );
         },
       }

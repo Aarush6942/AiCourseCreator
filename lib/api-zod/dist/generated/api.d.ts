@@ -59,11 +59,14 @@ export declare const createLessonPlanBodyDepthDefault = "standard";
 export declare const CreateLessonPlanBody: zod.ZodObject<{
     topic: zod.ZodString;
     depth: zod.ZodDefault<zod.ZodEnum<["quick", "standard", "deep"]>>;
+    secretCode: zod.ZodString;
 }, "strip", zod.ZodTypeAny, {
     topic: string;
     depth: "standard" | "quick" | "deep";
+    secretCode: string;
 }, {
     topic: string;
+    secretCode: string;
     depth?: "standard" | "quick" | "deep" | undefined;
 }>;
 export declare const CreateLessonPlanResponse: zod.ZodObject<{

@@ -37,6 +37,23 @@ export declare const lessonPlansTable: import("drizzle-orm/pg-core").PgTableWith
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        secretCode: import("drizzle-orm/pg-core").PgColumn<{
+            name: "secret_code";
+            tableName: "lesson_plans";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         createdAt: import("drizzle-orm/pg-core").PgColumn<{
             name: "created_at";
             tableName: "lesson_plans";
@@ -185,6 +202,7 @@ export declare const lessonDaysTable: import("drizzle-orm/pg-core").PgTableWithC
 }>;
 export declare const insertLessonPlanSchema: z.ZodObject<{
     topic: z.ZodString;
+    secretCode: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 }, {
     out: {};
     in: {};

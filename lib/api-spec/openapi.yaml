@@ -206,8 +206,13 @@ components:
           enum: [quick, standard, deep]
           default: standard
           description: Desired lesson depth. Quick is a concise overview, standard is a balanced session, and deep is a detailed lesson.
+        secretCode:
+          type: string
+          minLength: 1
+          description: The signed-in user's secret tracking code.
       required:
         - topic
+        - secretCode
 
     QuizQuestion:
       type: object
