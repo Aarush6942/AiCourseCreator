@@ -34,11 +34,13 @@ export const ListLessonPlansResponse = zod.array(ListLessonPlansResponseItem)
  */
 
 export const createLessonPlanBodyDepthDefault = `standard`;
+export const createLessonPlanBodyDayCountDefault = 10;
 
 export const CreateLessonPlanBody = zod.object({
   "topic": zod.string().min(1),
   "depth": zod.enum(['quick', 'standard', 'deep']).default(createLessonPlanBodyDepthDefault).describe('Desired lesson depth. Quick is a concise overview, standard is a balanced session, and deep is a detailed lesson.'),
-  "secretCode": zod.string().min(1).describe('The signed-in user\'s secret tracking code.')
+  "secretCode": zod.string().min(1).describe('The signed-in user\'s secret tracking code.'),
+  "dayCount": zod.union([zod.literal(1), zod.literal(10)]).default(createLessonPlanBodyDayCountDefault).describe('Number of lessons to generate. Choose 1 for a short debugging run.')
 })
 
 export const CreateLessonPlanResponse = zod.object({

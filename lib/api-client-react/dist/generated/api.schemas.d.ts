@@ -27,6 +27,8 @@ export interface LessonPlanInput {
     depth?: LessonPlanInputDepth;
     /** The signed-in user's secret tracking code. */
     secretCode: string;
+    /** Number of lessons to generate. Choose 1 for a short debugging run. */
+    dayCount?: 1 | 10;
 }
 export interface QuizQuestion {
     question: string;

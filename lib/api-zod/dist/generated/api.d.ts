@@ -56,17 +56,21 @@ export declare const ListLessonPlansResponse: zod.ZodArray<zod.ZodObject<{
  * @summary Generate a new 10-day lesson plan using AI
  */
 export declare const createLessonPlanBodyDepthDefault = "standard";
+export declare const createLessonPlanBodyDayCountDefault = 10;
 export declare const CreateLessonPlanBody: zod.ZodObject<{
     topic: zod.ZodString;
     depth: zod.ZodDefault<zod.ZodEnum<["quick", "standard", "deep"]>>;
     secretCode: zod.ZodString;
+    dayCount: zod.ZodDefault<zod.ZodUnion<[zod.ZodLiteral<1>, zod.ZodLiteral<10>]>>;
 }, "strip", zod.ZodTypeAny, {
     topic: string;
+    dayCount: 1 | 10;
     depth: "standard" | "quick" | "deep";
     secretCode: string;
 }, {
     topic: string;
     secretCode: string;
+    dayCount?: 1 | 10 | undefined;
     depth?: "standard" | "quick" | "deep" | undefined;
 }>;
 export declare const CreateLessonPlanResponse: zod.ZodObject<{

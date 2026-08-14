@@ -112,7 +112,7 @@ async function callGroq(messages: Array<{ role: string; content: string }>, maxT
   throw new Error("callGroq exhausted retries");
 }
 
-async function generatePlanOutline(topic: string): Promise<DayOutline[]> {
+async function generatePlanOutline(topic: string, dayCount: number): Promise<DayOutline[]> {
   const content = await callGroq([
     {
       role: "system",
@@ -120,7 +120,7 @@ async function generatePlanOutline(topic: string): Promise<DayOutline[]> {
     },
     {
       role: "user",
-      content: `Design a 10-day course outline for: "${topic}".
+      content: `Design a ${dayCount}-day course outline for: "${topic}".
 
 Return JSON:
 {
@@ -130,7 +130,7 @@ Return JSON:
 }
 
 Requirements:
-- Exactly 10 days numbered 1-10
+- Exactly ${dayCount} day${dayCount === 1 ? "" : "s"} numbered 1-${dayCount}
 - Each day builds logically on previous days, from fundamentals to advanced
 - Titles should be specific and descriptive (not generic like "Introduction")
 - Objectives should describe concrete skills or knowledge the learner gains`,
@@ -167,7 +167,7 @@ async function generateDayLesson(
     },
     {
       role: "user",
-      content: `Write a detailed lesson for Day ${day.dayNumber} of a 10-day course on "${topic}".
+      content: `Write a detailed lesson for Day ${day.dayNumber} of a ${allDays.length}-day course on "${topic}".
 
 Day ${day.dayNumber} title: "${day.title}"
 Day ${day.dayNumber} objective: ${day.objective}
@@ -219,9 +219,9 @@ QUIZ REQUIREMENTS:
   return { ...parsed, dayNumber: day.dayNumber, title: day.title };
 }
 
-async function generateLessonPlanWithGroq(topic: string, depth: LearningDepth): Promise<GeneratedDay[]> {
+async function generateLessonPlanWithGroq(topic: string, depth: LearningDepth, dayCount: number): Promise<GeneratedDay[]> {
   // Step 1: generate the outline quickly
-  const outline = await generatePlanOutline(topic);
+  const outline = await generatePlanOutline(topic, dayCount);
 
   // Step 2: generate a small number of days concurrently. Ten strictly
   // sequential Groq calls can exceed the HTTP proxy timeout before Express
@@ -325,12 +325,15 @@ router.post("/lesson-plans", async (req, res): Promise<void> => {
     return;
   }
 
-  const { topic, depth = "standard", secretCode } = parsed.data;
-  req.log.info({ topic, depth }, "Generating lesson plan with Groq");
+  const { topic, depth = "standard", secretCode, dayCount = 10 } = parsed.data;
+  // The one-day mode is intentionally short so it can be used to isolate
+  // deployment, database, and Groq problems quickly.
+  const generationDepth: LearningDepth = dayCount === 1 ? "quick" : depth;
+  req.log.info({ topic, depth: generationDepth, dayCount }, "Generating lesson plan with Groq");
 
   let days: GeneratedDay[];
   try {
-    days = await generateLessonPlanWithGroq(topic, depth);
+    days = await generateLessonPlanWithGroq(topic, generationDepth, dayCount);
   } catch (err) {
     req.log.error({ err }, "Groq API error");
     res.status(500).json({ error: "Failed to generate lesson plan. Please try again." });

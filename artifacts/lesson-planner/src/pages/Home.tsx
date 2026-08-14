@@ -128,6 +128,7 @@ export default function Home() {
   const queryClient = useQueryClient();
   const [topic, setTopic] = useState('');
   const [depth, setDepth] = useState<LearningDepth>('standard');
+  const [dayCount, setDayCount] = useState<1 | 10>(10);
   const [generatingTopic, setGeneratingTopic] = useState('');
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('Explorer');
@@ -158,7 +159,7 @@ export default function Home() {
     }
 
     createPlan.mutate(
-      { data: { topic, depth, secretCode } },
+      { data: { topic, depth, dayCount, secretCode } },
       {
         onSuccess: (newPlan) => {
           queryClient.invalidateQueries({ queryKey: getListLessonPlansQueryKey() });
@@ -282,6 +283,18 @@ export default function Home() {
                     <option value="quick">Quick overview</option>
                     <option value="standard">Average session</option>
                     <option value="deep">Deep dive</option>
+                  </select>
+                </label>
+                <label className="flex items-center justify-between gap-3 px-4 pt-2 pb-1 text-sm text-muted-foreground">
+                  <span>Course length</span>
+                  <select
+                    value={dayCount}
+                    onChange={(e) => setDayCount(Number(e.target.value) as 1 | 10)}
+                    className="bg-transparent font-medium text-foreground outline-none"
+                    data-testid="select-course-length"
+                  >
+                    <option value={10}>10 days</option>
+                    <option value={1}>1 day — quick test</option>
                   </select>
                 </label>
               </motion.form>
