@@ -44,7 +44,7 @@ const GENERATION_STEPS = [
   { label: 'Saving your plan…',        pct: 97 },
 ];
 
-function GenerationProgress({ topic }: { topic: string }) {
+function GenerationProgress({ topic, onCancel }: { topic: string; onCancel: () => void }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [elapsedSec, setElapsedSec] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -116,9 +116,19 @@ function GenerationProgress({ topic }: { topic: string }) {
         })}
       </div>
 
-      <p className="text-xs text-muted-foreground mt-6 text-center">
-        This takes 1–3 minutes depending on the topic and depth. You can leave this page and come back later; your plan will be saved.
-      </p>
+      <div className="flex items-center justify-between mt-6 pt-4 border-t">
+        <p className="text-xs text-muted-foreground">
+          This takes 1–3 minutes depending on depth.
+        </p>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={onCancel}
+          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+        >
+          Cancel Generation
+        </Button>
+      </div>
     </motion.div>
   );
 }
@@ -137,7 +147,6 @@ export default function Home() {
   const createPlan = useCreateLessonPlan();
   const deletePlan = useDeleteLessonPlan();
 
-  // Read authenticated metadata from memory when dashboard mounts
   useEffect(() => {
     const savedUsername = localStorage.getItem('username');
     if (savedUsername) {
@@ -177,6 +186,12 @@ export default function Home() {
     );
   };
 
+  const handleCancelGeneration = () => {
+    createPlan.reset();
+    setGeneratingTopic('');
+    setGenerationError('Generation was cancelled.');
+  };
+
   const handleDelete = (id: number) => {
     deletePlan.mutate(
       { id },
@@ -194,7 +209,6 @@ export default function Home() {
         
         {/* Header Area */}
         <header className="mb-16 text-center space-y-4">
-          {/* Animated Greeting Label Component */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -238,7 +252,11 @@ export default function Home() {
         >
           <AnimatePresence mode="wait">
             {createPlan.isPending ? (
-              <GenerationProgress key="progress" topic={generatingTopic} />
+              <GenerationProgress 
+                key="progress" 
+                topic={generatingTopic} 
+                onCancel={handleCancelGeneration} 
+              />
             ) : (
               <motion.form
                 key="form"

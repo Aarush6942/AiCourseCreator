@@ -10,7 +10,6 @@ import Login from '@/pages/Login';
 
 const queryClient = new QueryClient();
 
-// 🔐 Route Guard: If they aren't logged in, send them to /login
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuth = localStorage.getItem('isAuthenticated') === 'true';
   return isAuth ? <>{children}</> : <Redirect to="/login" />;
