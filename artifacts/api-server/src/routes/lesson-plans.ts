@@ -66,23 +66,37 @@ async function callGroq(messages: Array<{ role: string; content: string }>, maxT
   if (!apiKey) throw new Error("GROQ_API_KEY is not set");
 
   for (let attempt = 0; attempt <= retries; attempt++) {
-    // A JSON-validation error means the model ran out of room before closing
-    // its JSON response. Give the retry additional completion headroom.
     const attemptMaxTokens = attempt === 0 ? maxTokens : Math.min(Math.ceil(maxTokens * 1.5), 8000);
-    const response = await fetch(GROQ_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages,
-        temperature: 0.7,
-        max_tokens: attemptMaxTokens,
-        response_format: { type: "json_object" },
-      }),
-    });
+    
+    // Create an abort controller with a 15-second timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    let response: Response;
+    try {
+      response = await fetch(GROQ_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: GROQ_MODEL,
+          messages,
+          temperature: 0.7,
+          max_tokens: attemptMaxTokens,
+          response_format: { type: "json_object" },
+        }),
+        signal: controller.signal,
+      });
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        throw new Error("Groq API request timed out after 15 seconds");
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (response.status === 429) {
       const errorText = await response.text();
