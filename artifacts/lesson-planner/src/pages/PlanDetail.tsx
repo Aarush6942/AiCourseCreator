@@ -161,7 +161,7 @@ export default function PlanDetail({ id: stringId, day }: PlanDetailProps) {
         </div>
         <h2 className="text-2xl font-bold mb-2">Plan not found</h2>
         <p className="text-muted-foreground mb-6">This lesson plan may have been deleted or doesn't exist.</p>
-        <Button asChild><Link href="/">Return Home</Link></Button>
+        <Button asChild><Link href="/home">Return Home</Link></Button>
       </div>
     );
   }
