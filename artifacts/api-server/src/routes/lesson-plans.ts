@@ -308,6 +308,17 @@ router.get("/lesson-plans", async (req, res): Promise<void> => {
 
 // POST /lesson-plans
 router.post("/lesson-plans", async (req, res): Promise<void> => {
+  const requestId = req.headers["cf-ray"] ?? req.id;
+  req.log.info({ requestId }, "Lesson-plan generation request received");
+  req.once("aborted", () => {
+    req.log.warn({ requestId }, "Lesson-plan client disconnected before completion");
+  });
+  res.once("close", () => {
+    if (!res.writableEnded) {
+      req.log.warn({ requestId }, "Lesson-plan response connection closed before completion");
+    }
+  });
+
   const parsed = CreateLessonPlanBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
