@@ -62,16 +62,6 @@ export default function PlanDetail({ id: stringId, day }: PlanDetailProps) {
   const activeDayNumber = dayParam || (sortedDays.length > 0 ? sortedDays[0].dayNumber : null);
   const activeDay = sortedDays.find(d => d.dayNumber === activeDayNumber);
 
-  // A newly created plan is returned immediately while the API generates its
-  // days in the background. Refresh until the first saved day is available.
-  useEffect(() => {
-    if (!plan || sortedDays.length > 0) return;
-    const refreshTimer = window.setInterval(() => {
-      void queryClient.invalidateQueries({ queryKey: getGetLessonPlanQueryKey(planId) });
-    }, 3000);
-    return () => window.clearInterval(refreshTimer);
-  }, [plan, sortedDays.length, planId, queryClient]);
-
   useEffect(() => {
     if (plan && sortedDays.length > 0 && !dayParam) {
       setLocation(`/plans/${planId}/day/${sortedDays[0].dayNumber}`, { replace: true });
@@ -212,7 +202,7 @@ export default function PlanDetail({ id: stringId, day }: PlanDetailProps) {
         <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1 scroll-smooth">
           {sortedDays.length === 0 ? (
             <div className="px-4 py-8 text-center text-muted-foreground text-sm">
-              Generating your lessons…
+              All days completed or deleted.
             </div>
           ) : (
             sortedDays.map((day) => {
@@ -379,9 +369,7 @@ export default function PlanDetail({ id: stringId, day }: PlanDetailProps) {
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8">
               <BookOpen className="w-16 h-16 mb-4 opacity-20" />
-              <p className="text-xl font-medium">
-                {sortedDays.length === 0 ? 'Generating your lesson plan…' : 'Select a day from the sidebar'}
-              </p>
+              <p className="text-xl font-medium">Select a day from the sidebar</p>
             </div>
           )}
         </div>
