@@ -187,7 +187,7 @@ export default function PlanDetail({ id: stringId, day }: PlanDetailProps) {
 
         <div className="p-4 border-b bg-sidebar flex items-center justify-between">
           <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground">
-            <Link href="/" className="flex items-center gap-2">
+            <Link href="/home" className="flex items-center gap-2">
               <ChevronLeft className="w-4 h-4" /> Home
             </Link>
           </Button>
