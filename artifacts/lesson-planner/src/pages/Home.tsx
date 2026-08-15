@@ -147,7 +147,7 @@ export default function Home() {
   const { data: allPlans, isLoading } = useListLessonPlans();
 
   // Filter plans so users only see those matching their secretCode
-  const plans = allPlans?.filter((plan: any) => plan.secret_code === secretCode);
+  const plans = allPlans?.filter((plan: any) => (plan.secret_code || plan.secretCode) === secretCode);
   const createPlan = useCreateLessonPlan();
   const deletePlan = useDeleteLessonPlan();
 
