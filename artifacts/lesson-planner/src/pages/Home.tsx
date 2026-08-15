@@ -143,7 +143,11 @@ export default function Home() {
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('Explorer');
   
-  const { data: plans, isLoading } = useListLessonPlans();
+ const secretCode = typeof window !== 'undefined' ? localStorage.getItem('secretCode') || '' : '';
+  const { data: allPlans, isLoading } = useListLessonPlans();
+
+  // Filter plans so users only see those matching their secretCode
+  const plans = allPlans?.filter((plan: any) => plan.secretCode === secretCode);
   const createPlan = useCreateLessonPlan();
   const deletePlan = useDeleteLessonPlan();
 

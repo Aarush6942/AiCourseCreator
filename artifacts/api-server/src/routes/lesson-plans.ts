@@ -145,6 +145,22 @@ Return JSON:
   ]
 }
 
+router.get("/lesson-plans", async (req, res) => {
+  const secretCode = req.query.secretCode as string;
+
+  if (!secretCode) {
+    return res.status(401).json({ error: "Unauthorized: Missing secret code" });
+  }
+
+  // Filter your database query by secretCode
+  const plans = await db.lessonPlan.findMany({
+    where: { secretCode },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return res.json(plans);
+});
+
 Requirements:
 - Exactly ${dayCount} day${dayCount === 1 ? "" : "s"} numbered 1-${dayCount}
 - Each day builds logically on previous days, from fundamentals to advanced
