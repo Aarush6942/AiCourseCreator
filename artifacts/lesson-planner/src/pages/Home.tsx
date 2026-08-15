@@ -145,12 +145,13 @@ export default function Home() {
   
   const secretCode = typeof window !== 'undefined' ? localStorage.getItem('secretCode') || '' : '';
   const { data: allPlans, isLoading } = useListLessonPlans();
-
+  console.log('All plans:', allPlans);
   // Filter on the client side, excluding nulls and non-matching codes
   const plans = allPlans?.filter((plan: any) => {
   const planCode = plan.secret_code || plan.secretCode;
   return planCode && planCode === secretCode;
   });
+  console.log('Filtered plans:', plans);
   const createPlan = useCreateLessonPlan();
   const deletePlan = useDeleteLessonPlan();
   
