@@ -24,6 +24,7 @@ export const ListLessonPlansResponseItem = zod.object({
   "id": zod.number(),
   "topic": zod.string(),
   "createdAt": zod.string(),
+  "secretCode": zod.string().nullable(),
   "dayCount": zod.number()
 })
 export const ListLessonPlansResponse = zod.array(ListLessonPlansResponseItem)
