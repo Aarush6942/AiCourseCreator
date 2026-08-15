@@ -343,24 +343,16 @@ Requirements:
 
 // GET /lesson-plans
 router.get("/lesson-plans", async (req, res): Promise<void> => {
-  const secretCode = req.query.secretCode as string;
-
-  if (!secretCode) {
-    res.status(401).json({ error: "Unauthorized: Missing secret code" });
-    return;
-  }
-
   const plans = await db
     .select({
       id: lessonPlansTable.id,
       topic: lessonPlansTable.topic,
       createdAt: lessonPlansTable.createdAt,
-      secretCode: lessonPlansTable.secretCode, // Include this so the frontend can read it if needed
+      secretCode: lessonPlansTable.secretCode,
       dayCount: sql<number>`cast(count(${lessonDaysTable.id}) as integer)`,
     })
     .from(lessonPlansTable)
     .leftJoin(lessonDaysTable, eq(lessonDaysTable.lessonPlanId, lessonPlansTable.id))
-    .where(eq(lessonPlansTable.secretCode, secretCode)) // Filters strictly by the user's secret code
     .groupBy(lessonPlansTable.id, lessonPlansTable.secretCode)
     .orderBy(lessonPlansTable.createdAt);
 

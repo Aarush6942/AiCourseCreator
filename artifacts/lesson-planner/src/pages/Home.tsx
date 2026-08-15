@@ -143,14 +143,17 @@ export default function Home() {
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('Explorer');
   
- const secretCode = typeof window !== 'undefined' ? localStorage.getItem('secretCode') || '' : '';
+  const secretCode = typeof window !== 'undefined' ? localStorage.getItem('secretCode') || '' : '';
   const { data: allPlans, isLoading } = useListLessonPlans();
 
-  // Filter plans so users only see those matching their secretCode
-  const plans = allPlans?.filter((plan: any) => (plan.secret_code || plan.secretCode) === secretCode);
+  // Filter on the client side, excluding nulls and non-matching codes
+  const plans = allPlans?.filter((plan: any) => {
+  const planCode = plan.secret_code || plan.secretCode;
+  return planCode && planCode === secretCode;
+  });
   const createPlan = useCreateLessonPlan();
   const deletePlan = useDeleteLessonPlan();
-
+  
   useEffect(() => {
     const savedUsername = localStorage.getItem('username');
     if (savedUsername) {
