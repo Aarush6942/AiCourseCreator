@@ -355,9 +355,9 @@ router.get("/lesson-plans", async (req, res): Promise<void> => {
     .leftJoin(lessonDaysTable, eq(lessonDaysTable.lessonPlanId, lessonPlansTable.id))
     .groupBy(lessonPlansTable.id, lessonPlansTable.secretCode)
     .orderBy(lessonPlansTable.createdAt);
-
-  res.json(ListLessonPlansResponse.parse(plans.map((p) => ({ ...p, createdAt: p.createdAt.toISOString() }))));
   console.log("Lesson plans retrieved:", plans.length, "plans");
+  res.json(ListLessonPlansResponse.parse(plans.map((p) => ({ ...p, createdAt: p.createdAt.toISOString() }))));
+  
 });
 
 // POST /lesson-plans
