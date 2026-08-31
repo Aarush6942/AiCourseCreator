@@ -18,7 +18,7 @@ dns.setDefaultResultOrder("ipv4first");
 const router: IRouter = Router();
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MODEL = "llama-3.1-70b-versatile";
+const GROQ_MODEL = "openai/gpt-oss-120b";
 
 interface QuizQuestion {
   question: string;
