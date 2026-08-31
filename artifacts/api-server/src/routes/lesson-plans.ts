@@ -13,11 +13,12 @@ import {
   RegenerateQuizResponse,
 } from "@workspace/api-zod";
 import dns from "node:dns";
+
 dns.setDefaultResultOrder("ipv4first");
 const router: IRouter = Router();
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MODEL = "llama-3.3-70b-versatile";
+const GROQ_MODEL = "llama-3.1-70b-versatile";
 
 interface QuizQuestion {
   question: string;
@@ -55,19 +56,24 @@ function parseRetryAfterMs(errorBody: string): number {
   if (secondsMatch) return Math.ceil(parseFloat(secondsMatch[1]) * 1000) + 500;
   const minsMatch = errorBody.match(/try again in ([0-9]+)m([0-9.]+)s/);
   if (minsMatch) return (parseInt(minsMatch[1]) * 60 + parseFloat(minsMatch[2])) * 1000 + 500;
-  return 30_000; // default 30s fallback
+  return 30_000;
 }
 
-async function callGroq(messages: Array<{ role: string; content: string }>, maxTokens = 4000, retries = 5, responseFormatJson = true): Promise<string> {
+async function callGroq(
+  messages: Array<{ role: string; content: string }>,
+  maxTokens = 4000,
+  retries = 5,
+  responseFormatJson = true
+): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error("GROQ_API_KEY is not set");
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     const attemptMaxTokens = attempt === 0 ? maxTokens : Math.min(Math.ceil(maxTokens * 1.5), 8000);
-    
-    // Create an abort controller with a 15-second timeout to prevent hanging on Render
+
+    // Set a 60-second timeout to allow complete lesson generation
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     let response: Response;
     try {
@@ -93,7 +99,7 @@ async function callGroq(messages: Array<{ role: string; content: string }>, maxT
       });
     } catch (err: any) {
       if (err.name === "AbortError") {
-        throw new Error("Groq API request timed out after 15 seconds");
+        throw new Error("Groq API request timed out after 60 seconds");
       }
       throw err;
     } finally {
@@ -138,28 +144,12 @@ async function generatePlanOutline(topic: string, dayCount: number): Promise<Day
       role: "user",
       content: `Design a ${dayCount}-day course outline for: "${topic}".
 
-Return JSON:
+Return JSON with this exact format:
 {
   "days": [
     { "dayNumber": 1, "title": "Title here", "objective": "One sentence describing what is covered and learned this day." }
   ]
 }
-
-router.get("/lesson-plans", async (req, res) => {
-  const secretCode = req.query.secretCode as string;
-
-  if (!secretCode) {
-    return res.status(401).json({ error: "Unauthorized: Missing secret code" });
-  }
-
-  // Filter your database query by secretCode
-  const plans = await db.lessonPlan.findMany({
-    where: { secretCode },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return res.json(plans);
-});
 
 Requirements:
 - Exactly ${dayCount} day${dayCount === 1 ? "" : "s"} numbered 1-${dayCount}
@@ -195,7 +185,7 @@ async function generateDayLesson(
   const content = await callGroq([
     {
       role: "system",
-      content: `You are an expert educator writing a comprehensive, in-depth lesson. Your writing is clear, engaging, and pedagogically sound. You include real examples, analogies, and detailed explanations. Respond with valid JSON only.`,
+      content: `You are an expert educator writing a comprehensive lesson. Respond with valid JSON only.`,
     },
     {
       role: "user",
@@ -206,11 +196,11 @@ Day ${day.dayNumber} objective: ${day.objective}
 ${previousDays ? `\nCoverage so far:\n${previousDays}` : ""}
 ${upcomingDays ? `\nUpcoming days: ${upcomingDays}` : ""}
 
-Return JSON with this structure:
+Return JSON:
 {
   "dayNumber": ${day.dayNumber},
   "title": "${day.title}",
-  "lessonContent": "...(full markdown lesson here)...",
+  "lessonContent": "...(markdown lesson here)...",
   "quiz": [
     {
       "question": "...",
@@ -221,28 +211,15 @@ Return JSON with this structure:
   ]
 }
 
-LESSON CONTENT REQUIREMENTS — this is the most important part:
-- Write approximately ${settings.wordCount} words of educational content in markdown. This should be ${settings.label}.
-- Keep the lesson within that target; reserve enough response space to complete all five quiz questions and the closing JSON brackets.
-- Start with a brief overview paragraph explaining what will be covered and why it matters
-- Use ## for main sections (aim for 5-7 distinct sections)
-- Use ### for subsections where appropriate
-- Include concrete, real-world examples for every concept — show, don't just tell
-- Include at least one worked example or case study that walks through a scenario step by step
-- Use **bold** for key terms when first introduced, then define them clearly
-- Use bullet lists and numbered steps for processes and comparisons
-- Include a "Key Takeaways" section at the end summarizing the 4-5 most important points
-- Write for a motivated adult learner — be thorough but engaging, not dry
-- Reference concepts from previous days naturally where relevant
-- Hint at how today's material connects to what comes next
+LESSON CONTENT REQUIREMENTS:
+- Target length: ${settings.wordCount} words (${settings.label})
+- Use ## for 5-7 main sections
+- Include real-world examples and step-by-step case studies
+- Include a "Key Takeaways" section at the end
 
 QUIZ REQUIREMENTS:
-- Exactly 5 multiple choice questions
-- Questions should test genuine understanding, not just memorization
-- Each question must have exactly 4 answer options
-- correctAnswer is the 0-based index of the correct option
-- Explanations should teach — explain WHY the answer is correct and why the others aren't
-- Vary difficulty: 2 foundational, 2 applied, 1 analytical/synthesis question`,
+- Exactly 5 multiple choice questions with 4 options each
+- correctAnswer is the 0-based index`,
     },
   ], settings.maxTokens);
 
@@ -302,16 +279,13 @@ async function generateNewQuiz(topic: string, dayTitle: string, lessonContent: s
   const content = await callGroq([
     {
       role: "system",
-      content: "You are an expert educator. Create fresh, high-quality quiz questions. Respond with valid JSON only.",
+      content: "You are an expert educator. Respond with valid JSON only.",
     },
     {
       role: "user",
-      content: `Generate a brand-new set of 5 quiz questions for Day ${dayNumber} of a course on "${topic}".
+      content: `Generate 5 quiz questions for Day ${dayNumber} of "${topic}". Title: "${dayTitle}".
 
-Lesson title: "${dayTitle}"
-
-Lesson content summary (first 1500 chars):
-${lessonContent.slice(0, 1500)}
+Lesson summary: ${lessonContent.slice(0, 1500)}
 
 Return JSON:
 {
@@ -323,17 +297,8 @@ Return JSON:
       "explanation": "..."
     }
   ]
-}
-
-Requirements:
-- Exactly 5 questions, ALL different from any previous quiz
-- Test genuine understanding and application, not surface recall
-- Each question has exactly 4 options
-- correctAnswer is the 0-based index of the correct option
-- Explanations teach WHY the answer is correct and why others are wrong
-- Mix: 2 foundational, 2 applied, 1 analytical question
-- Questions should be fresh angles on the material — scenarios, edge cases, "what would happen if..." style`,
-  },
+}`,
+    },
   ], 3000);
 
   const parsed = JSON.parse(content) as { quiz: QuizQuestion[] };
@@ -355,24 +320,12 @@ router.get("/lesson-plans", async (req, res): Promise<void> => {
     .leftJoin(lessonDaysTable, eq(lessonDaysTable.lessonPlanId, lessonPlansTable.id))
     .groupBy(lessonPlansTable.id, lessonPlansTable.secretCode)
     .orderBy(lessonPlansTable.createdAt);
-  console.log("Lesson plans retrieved:", plans);
+
   res.json(ListLessonPlansResponse.parse(plans.map((p) => ({ ...p, createdAt: p.createdAt.toISOString() }))));
-  
 });
 
 // POST /lesson-plans
 router.post("/lesson-plans", async (req, res): Promise<void> => {
-  const requestId = req.headers["cf-ray"] ?? req.id;
-  req.log.info({ requestId }, "Lesson-plan generation request received");
-  req.once("aborted", () => {
-    req.log.warn({ requestId }, "Lesson-plan client disconnected before completion");
-  });
-  res.once("close", () => {
-    if (!res.writableEnded) {
-      req.log.warn({ requestId }, "Lesson-plan response connection closed before completion");
-    }
-  });
-
   const parsed = CreateLessonPlanBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -381,7 +334,6 @@ router.post("/lesson-plans", async (req, res): Promise<void> => {
 
   const { topic, depth = "standard", secretCode, dayCount = 10 } = parsed.data;
   const generationDepth: LearningDepth = dayCount === 1 ? "quick" : depth;
-  req.log.info({ topic, depth: generationDepth, dayCount }, "Generating lesson plan with Groq");
 
   let days: GeneratedDay[];
   try {
@@ -412,7 +364,7 @@ router.post("/lesson-plans", async (req, res): Promise<void> => {
     createdAt: plan.createdAt.toISOString(),
     days: insertedDays
       .sort((a, b) => a.dayNumber - b.dayNumber)
-      .map((d: typeof insertedDays[number]) => ({
+      .map((d) => ({
         id: d.id,
         dayNumber: d.dayNumber,
         title: d.title,
@@ -524,8 +476,6 @@ router.post("/lesson-plans/:id/days/:dayNumber/regenerate-quiz", async (req, res
     return;
   }
 
-  req.log.info({ planId: params.data.id, dayNumber: params.data.dayNumber }, "Regenerating quiz with Groq");
-
   let newQuiz: QuizQuestion[];
   try {
     newQuiz = await generateNewQuiz(plan.topic, day.title, day.lessonContent, day.dayNumber);
@@ -553,7 +503,7 @@ router.post("/lesson-plans/:id/days/:dayNumber/regenerate-quiz", async (req, res
   res.json(RegenerateQuizResponse.parse(result));
 });
 
-// POST /lesson-plans/:id/days/:dayNumber/ask — AI tutor chat (no codegen, free-form text)
+// POST /lesson-plans/:id/days/:dayNumber/ask
 router.post("/lesson-plans/:id/days/:dayNumber/ask", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   const dayNumber = parseInt(req.params.dayNumber, 10);
@@ -580,27 +530,22 @@ router.post("/lesson-plans/:id/days/:dayNumber/ask", async (req, res): Promise<v
     .where(and(eq(lessonDaysTable.lessonPlanId, id), eq(lessonDaysTable.dayNumber, dayNumber)));
   if (!day) { res.status(404).json({ error: "Day not found" }); return; }
 
-  const systemPrompt = `You are an expert, friendly tutor helping a student study "${plan.topic}".
-They are currently on Day ${day.dayNumber}: "${day.title}".
+  const systemPrompt = `You are an expert tutor helping a student study "${plan.topic}".
+Lesson Day ${day.dayNumber}: "${day.title}".
 
-Here is the lesson content they have read:
----
+Context:
 ${day.lessonContent.slice(0, 3000)}
----
 
-Answer their questions clearly and concisely. Use short paragraphs or bullet points. 
-If the question is off-topic from the lesson, gently steer back.
-Keep answers under ~250 words unless they specifically ask for more detail.`;
+Answer concisely with short paragraphs or bullets.`;
 
   const messages = [
     { role: "system", content: systemPrompt },
-    ...(history || []).slice(-10),          // last 10 turns of context
+    ...(history || []).slice(-10),
     { role: "user", content: message.trim() },
   ];
 
   let reply: string;
   try {
-    // Utilize callGroq with responseFormatJson = false for free-form text
     reply = await callGroq(messages, 600, 3, false);
   } catch (err: any) {
     req.log.error({ err: err?.message || err }, "Groq error in /ask");
