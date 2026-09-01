@@ -3,13 +3,36 @@ import { GoogleGenAI } from "@google/genai";
 
 const router = Router();
 
-// Initialize Google Gen AI Client using the modern @google/genai SDK
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY,
-});
+// Validate API Key at startup
+const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
-// gemini-2.5-flash is ultra-fast, has a 1M token context, and strong rate limits
+if (!apiKey) {
+  console.error("❌ CRITICAL: No Gemini API Key found in environment variables!");
+} else {
+  console.log("✅ Gemini API Key is loaded.");
+}
+
+// Initialize Google Gen AI Client using the modern @google/genai SDK
+const ai = new GoogleGenAI({ apiKey });
+
 const GEMINI_MODEL = "gemini-2.5-flash";
+
+/**
+ * Safely extracts and parses JSON content even if wrapped in markdown code fences
+ */
+function parseGeminiJson(rawText: string) {
+  try {
+    const cleaned = rawText
+      .replace(/```json/gi, "")
+      .replace(/```/g, "")
+      .trim();
+      
+    return JSON.parse(cleaned);
+  } catch (err) {
+    console.error("❌ Failed to parse JSON string:", rawText);
+    throw new Error("Gemini returned invalid JSON structure.");
+  }
+}
 
 /**
  * Executes a generation request using Gemini
@@ -36,7 +59,7 @@ async function callGemini(
 }
 
 /**
- * Route: POST /api/lesson-plans
+ * Route: POST / (Mounted under /api/lesson-plans)
  * Generates an entire structured course
  */
 router.post("/", async (req: Request, res: Response) => {
@@ -60,12 +83,14 @@ Format output strictly as JSON:
 }`;
 
     const rawOutline = await callGemini(outlineSystemPrompt, outlineUserPrompt, true);
-    const outlineData = JSON.parse(rawOutline);
+    const outlineData = parseGeminiJson(rawOutline);
 
-    // Step 2: Generate Content for Each Day
-    const generatedDays = [];
-    
-    for (const day of outlineData.days) {
+    if (!outlineData.days || !Array.isArray(outlineData.days)) {
+      throw new Error("Invalid course outline generated: missing 'days' array.");
+    }
+
+    // Step 2: Generate Content for All Days in Parallel (Speeds up response drastically)
+    const dayPromises = outlineData.days.map(async (day: { dayNumber: number; topic: string }) => {
       const daySystemPrompt = `You are a master instructor crafting comprehensive educational modules. Write in detailed JSON.`;
       const dayUserPrompt = `Create lesson details for Day ${day.dayNumber}: "${day.topic}" for the course "${topic}".
 Target Depth Level: ${depth}.
@@ -86,8 +111,13 @@ Format output strictly as JSON:
 }`;
 
       const rawDayContent = await callGemini(daySystemPrompt, dayUserPrompt, true);
-      generatedDays.push(JSON.parse(rawDayContent));
-    }
+      return parseGeminiJson(rawDayContent);
+    });
+
+    const generatedDays = await Promise.all(dayPromises);
+
+    // Sort days to ensure strictly ascending chronological order
+    generatedDays.sort((a, b) => a.dayNumber - b.dayNumber);
 
     // Step 3: Combine and Respond
     const fullCoursePlan = {
@@ -106,7 +136,7 @@ Format output strictly as JSON:
     console.error("Gemini Generation Error:", error);
     return res.status(500).json({
       error: "Failed to generate lesson plan",
-      details: error.message,
+      details: error.message || "An unexpected error occurred",
     });
   }
 });
