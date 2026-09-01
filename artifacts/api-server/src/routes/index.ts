@@ -5,9 +5,8 @@ import authRouter from "./auth";
 
 const router: IRouter = Router();
 
-// Mount sub-routers with explicit API paths
-router.use("/api", healthRouter);
-router.use("/api/lesson-plans", lessonPlansRouter); // Mounts under /api/lesson-plans
-router.use("/api/auth", authRouter);
+router.use(healthRouter);
+router.use("/lesson-plans", lessonPlansRouter); // Combines with app.ts to make /api/lesson-plans
+router.use("/auth", authRouter);
 
 export default router;

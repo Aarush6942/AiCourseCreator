@@ -39,7 +39,7 @@ async function callGemini(
  * Route: POST /api/lesson-plans
  * Generates an entire structured course
  */
-router.post("/api/lesson-plans", async (req: Request, res: Response) => {
+router.post("/", async (req: Request, res: Response) => {
   try {
     const { topic, depth = "intermediate", durationDays = 5 } = req.body;
 
