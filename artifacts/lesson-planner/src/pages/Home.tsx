@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useLocation } from 'wouter';
 import { 
   useListLessonPlans, 
@@ -12,7 +12,6 @@ import { BookOpen, Sparkles, Trash2, ArrowRight, CheckCircle2, Loader2, User } f
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { 
   AlertDialog,
@@ -29,7 +28,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 type LearningDepth = 'quick' | 'standard' | 'deep';
 
-const GENERATION_STEPS = [
+const STEPS_10_DAYS = [
   { label: 'Building course outline…', pct: 5 },
   { label: 'Writing Day 1 lesson…',    pct: 14 },
   { label: 'Writing Day 2 lesson…',    pct: 23 },
@@ -44,24 +43,40 @@ const GENERATION_STEPS = [
   { label: 'Saving your plan…',        pct: 97 },
 ];
 
-function GenerationProgress({ topic, onCancel }: { topic: string; onCancel: () => void }) {
+const STEPS_1_DAY = [
+  { label: 'Building course outline…', pct: 15 },
+  { label: 'Writing Day 1 lesson…',    pct: 65 },
+  { label: 'Saving your plan…',        pct: 95 },
+];
+
+function GenerationProgress({ 
+  topic, 
+  dayCount, 
+  onCancel 
+}: { 
+  topic: string; 
+  dayCount: 1 | 10; 
+  onCancel: () => void 
+}) {
+  const steps = dayCount === 1 ? STEPS_1_DAY : STEPS_10_DAYS;
   const [stepIndex, setStepIndex] = useState(0);
   const [elapsedSec, setElapsedSec] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    const intervalTime = dayCount === 1 ? 3000 : 12000;
     timerRef.current = setInterval(() => {
-      setStepIndex(i => Math.min(i + 1, GENERATION_STEPS.length - 1));
-      setElapsedSec(s => s + 12);
-    }, 12_000);
+      setStepIndex(i => Math.min(i + 1, steps.length - 1));
+    }, intervalTime);
+
     const secTick = setInterval(() => setElapsedSec(s => s + 1), 1000);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       clearInterval(secTick);
     };
-  }, []);
+  }, [dayCount, steps.length]);
 
-  const step = GENERATION_STEPS[stepIndex];
+  const step = steps[stepIndex];
   const mins = Math.floor(elapsedSec / 60);
   const secs = elapsedSec % 60;
   const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
@@ -93,7 +108,7 @@ function GenerationProgress({ topic, onCancel }: { topic: string; onCancel: () =
       </div>
 
       <div className="space-y-2 mt-5">
-        {GENERATION_STEPS.slice(0, Math.min(stepIndex + 3, GENERATION_STEPS.length)).map((s, i) => {
+        {steps.slice(0, Math.min(stepIndex + 3, steps.length)).map((s, i) => {
           const done = i < stepIndex;
           const active = i === stepIndex;
           return (
@@ -118,7 +133,7 @@ function GenerationProgress({ topic, onCancel }: { topic: string; onCancel: () =
 
       <div className="flex items-center justify-between mt-6 pt-4 border-t">
         <p className="text-xs text-muted-foreground">
-          This takes 1–3 minutes depending on depth.
+          {dayCount === 1 ? 'This takes a few seconds.' : 'This takes 1–3 minutes depending on depth.'}
         </p>
         <Button 
           variant="outline" 
@@ -142,19 +157,22 @@ export default function Home() {
   const [generatingTopic, setGeneratingTopic] = useState('');
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('Explorer');
-  
+
   const secretCode = typeof window !== 'undefined' ? localStorage.getItem('secretCode') || '' : '';
   const { data: allPlans, isLoading } = useListLessonPlans();
-  console.log('All plans:', allPlans);
-  // Filter on the client side, excluding nulls and non-matching codes
-  const plans = allPlans?.filter((plan: any) => {
-  const planCode = plan.secret_code || plan.secretCode;
-  return planCode && planCode === secretCode;
-  });
-  console.log('Filtered plans:', plans);
+  
+  // Clean memoized filtering
+  const plans = useMemo(() => {
+    if (!allPlans) return [];
+    return allPlans.filter((plan: any) => {
+      const planCode = plan.secret_code ?? plan.secretCode;
+      return Boolean(planCode && planCode === secretCode);
+    });
+  }, [allPlans, secretCode]);
+
   const createPlan = useCreateLessonPlan();
   const deletePlan = useDeleteLessonPlan();
-  
+
   useEffect(() => {
     const savedUsername = localStorage.getItem('username');
     if (savedUsername) {
@@ -168,17 +186,17 @@ export default function Home() {
     setGeneratingTopic(topic);
     setGenerationError(null);
 
-    const secretCode = localStorage.getItem('secretCode');
-    if (!secretCode) {
+    const userSecretCode = localStorage.getItem('secretCode');
+    if (!userSecretCode) {
       setGeneratingTopic('');
       setGenerationError('Please sign in again before generating a lesson plan.');
       return;
     }
 
     createPlan.mutate(
-      { data: { topic, depth, dayCount, secretCode } },
+      { data: { topic, depth, dayCount, secretCode: userSecretCode } },
       {
-        onSuccess: (newPlan) => {
+        onSuccess: (newPlan: any) => {
           queryClient.invalidateQueries({ queryKey: getListLessonPlansQueryKey() });
           setLocation(`/plans/${newPlan.id}`);
         },
@@ -209,6 +227,16 @@ export default function Home() {
         }
       }
     );
+  };
+
+  const formatDate = (dateStr: any) => {
+    try {
+      if (!dateStr) return 'Recently';
+      const parsedDate = new Date(dateStr);
+      return isNaN(parsedDate.getTime()) ? 'Recently' : format(parsedDate, 'MMM d, yyyy');
+    } catch {
+      return 'Recently';
+    }
   };
 
   return (
@@ -247,7 +275,7 @@ export default function Home() {
             transition={{ delay: 0.2 }}
             className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto"
           >
-            Your personal study companion. Enter any topic and we'll craft a beautiful, 10-day structured curriculum just for you.
+            Your personal study companion. Enter any topic and we'll craft a structured curriculum just for you.
           </motion.p>
         </header>
 
@@ -263,6 +291,7 @@ export default function Home() {
               <GenerationProgress 
                 key="progress" 
                 topic={generatingTopic} 
+                dayCount={dayCount}
                 onCancel={handleCancelGeneration} 
               />
             ) : (
@@ -303,7 +332,7 @@ export default function Home() {
                   <select
                     value={depth}
                     onChange={(e) => setDepth(e.target.value as LearningDepth)}
-                    className="bg-transparent font-medium text-foreground outline-none"
+                    className="bg-transparent font-medium text-foreground outline-none cursor-pointer"
                     data-testid="select-lesson-depth"
                   >
                     <option value="quick">Quick overview</option>
@@ -316,7 +345,7 @@ export default function Home() {
                   <select
                     value={dayCount}
                     onChange={(e) => setDayCount(Number(e.target.value) as 1 | 10)}
-                    className="bg-transparent font-medium text-foreground outline-none"
+                    className="bg-transparent font-medium text-foreground outline-none cursor-pointer"
                     data-testid="select-course-length"
                   >
                     <option value={10}>10 days</option>
@@ -354,7 +383,7 @@ export default function Home() {
           ) : plans && plans.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <AnimatePresence>
-                {plans.map((plan) => (
+                {plans.map((plan: any) => (
                   <motion.div
                     key={plan.id}
                     layout
@@ -367,7 +396,7 @@ export default function Home() {
                       <CardHeader className="flex-1 pb-4">
                         <div className="flex justify-between items-start mb-2">
                           <div className="bg-primary/10 text-primary text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
-                            {plan.dayCount} Days
+                            {plan.dayCount || 10} Days
                           </div>
                           
                           <AlertDialog>
@@ -380,7 +409,7 @@ export default function Home() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete this lesson plan?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  This will permanently delete the 10-day plan for "{plan.topic}" and all its contents. This cannot be undone.
+                                  This will permanently delete the plan for "{plan.topic}" and all its contents. This cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -397,7 +426,7 @@ export default function Home() {
                           {plan.topic}
                         </CardTitle>
                         <CardDescription className="text-sm mt-2 flex items-center text-muted-foreground/80">
-                          Created {format(new Date(plan.createdAt), 'MMM d, yyyy')}
+                          Created {formatDate(plan.createdAt)}
                         </CardDescription>
                       </CardHeader>
                       <CardFooter className="pt-0 border-t bg-muted/20 mt-auto p-4">
@@ -424,7 +453,7 @@ export default function Home() {
               </div>
               <h3 className="text-xl font-serif font-medium text-foreground mb-2">No plans yet</h3>
               <p className="text-muted-foreground max-w-md mx-auto">
-                Your library is empty. Enter a topic above to generate your first 10-day lesson plan and start learning.
+                Your library is empty. Enter a topic above to generate your first lesson plan and start learning.
               </p>
             </motion.div>
           )}

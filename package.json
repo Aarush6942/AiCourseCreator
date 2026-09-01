@@ -10,7 +10,9 @@
   },
   "private": true,
   "dependencies": {
+    "@google/genai": "^2.19.0",
     "@replit/connectors-sdk": "^0.4.1",
+    "class-variance-authority": "catalog:",
     "pg": "^8.22.0"
   },
   "devDependencies": {
